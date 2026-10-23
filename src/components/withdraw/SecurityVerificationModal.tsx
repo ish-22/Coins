@@ -12,6 +12,7 @@ import { Button } from '@/components/common/Button'
 import { Badge } from '@/components/common/Badge'
 import { WithdrawPayload } from './WithdrawConfirmationModal'
 import { formatCrypto } from '@/utils/formatters'
+import { useAuth } from '@/context/AuthContext'
 
 export interface SecurityVerificationModalProps {
   isOpen: boolean
@@ -28,6 +29,7 @@ export const SecurityVerificationModal: React.FC<SecurityVerificationModalProps>
   onBack,
   onClose,
 }) => {
+  const { user } = useAuth()
   const [google2faCode, setGoogle2faCode] = useState('')
   const [emailCode, setEmailCode] = useState('')
   const [codeSent, setCodeSent] = useState(false)
@@ -144,7 +146,7 @@ export const SecurityVerificationModal: React.FC<SecurityVerificationModalProps>
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-semibold text-cp-text-muted flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5 text-cp-gold" />
-                <span>Email Verification Code (alex.v@coinplus.io)</span>
+                <span>Email Verification Code ({user?.email || 'your email'})</span>
               </label>
 
               <button

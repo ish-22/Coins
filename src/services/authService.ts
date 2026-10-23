@@ -45,6 +45,8 @@ export const authService = {
     if (res.data.token) {
       localStorage.setItem('cp_token', res.data.token)
       localStorage.setItem('cp_user', JSON.stringify(res.data.user))
+      localStorage.removeItem('cp_user_account_profile')
+      window.dispatchEvent(new Event('cp_auth_changed'))
     }
     return res.data
   },
@@ -59,6 +61,9 @@ export const authService = {
       const storage = credentials.rememberMe ? localStorage : sessionStorage
       storage.setItem('cp_token', res.data.token)
       storage.setItem('cp_user', JSON.stringify(res.data.user))
+      localStorage.removeItem('cp_user_account_profile')
+      sessionStorage.removeItem('cp_user_account_profile')
+      window.dispatchEvent(new Event('cp_auth_changed'))
     }
     return res.data
   },
@@ -86,9 +91,12 @@ export const authService = {
       sessionStorage.removeItem('cp_token')
       localStorage.removeItem('cp_user')
       sessionStorage.removeItem('cp_user')
-      sessionStorage.removeItem('cp_admin_token')
+      localStorage.removeItem('cp_user_account_profile')
+      sessionStorage.removeItem('cp_user_account_profile')
+      localStorage.removeItem('cp_admin_token')
       sessionStorage.removeItem('cp_admin_user')
       sessionStorage.removeItem('cp_admin_auth')
+      window.dispatchEvent(new Event('cp_auth_changed'))
     }
   },
 

@@ -10,6 +10,7 @@ import { cn } from '@/utils/cn'
 import { Logo } from '@/components/common/Logo'
 import { Badge } from '@/components/common/Badge'
 import { useLayout } from '@/context/LayoutContext'
+import { useAuth } from '@/context/AuthContext'
 import { SIDEBAR_NAV_ITEMS, CATEGORY_LABELS } from '@/routes/navItems'
 
 export interface SidebarProps {
@@ -18,6 +19,7 @@ export interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const { isSidebarCollapsed, toggleSidebar } = useLayout()
+  const { user } = useAuth()
 
   // Group items by category
   const categories: Array<'core' | 'finance' | 'account' | 'support' | 'dev'> = [
@@ -159,20 +161,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
             <NavLink to="/account" className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-90">
               <div className="relative">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-bold text-xs">
-                  AV
+                  {user?.avatarInitials || user?.avatar_initials || 'CP'}
                 </div>
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-cp-positive border-2 border-cp-elevated rounded-full" />
               </div>
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-cp-text-primary truncate">Alex Vance</span>
+                  <span className="text-xs font-bold text-cp-text-primary truncate">
+                    {user?.displayName || user?.name || user?.fullName || 'User'}
+                  </span>
                   <Badge variant="gold" size="sm" className="px-1 py-0 text-[9px]">
-                    VIP 1
+                    {user?.vipLevel || user?.vip_level || 'VIP 1'}
                   </Badge>
                 </div>
                 <span className="text-[11px] text-cp-text-muted truncate block">
-                  alex.v@coinplus.io
+                  {user?.email || 'user@coinplus.io'}
                 </span>
               </div>
             </NavLink>
@@ -189,11 +193,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
           <div className="flex justify-center">
             <NavLink to="/account" className="relative group">
               <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-bold text-xs">
-                AV
+                {user?.avatarInitials || user?.avatar_initials || 'CP'}
               </div>
               <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-cp-positive border-2 border-cp-card rounded-full" />
               <div className="absolute left-full ml-3 px-3 py-1.5 bg-cp-elevated text-cp-text-primary border border-cp-border rounded-lg text-xs font-semibold shadow-card whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
-                Alex Vance (VIP 1)
+                {user?.displayName || user?.name || user?.fullName || 'User'} ({user?.vipLevel || user?.vip_level || 'VIP 1'})
               </div>
             </NavLink>
           </div>

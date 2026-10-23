@@ -1,5 +1,5 @@
 import React from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   X,
   ArrowDownToLine,
@@ -14,10 +14,13 @@ import { Logo } from '@/components/common/Logo'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
 import { useLayout } from '@/context/LayoutContext'
+import { useAuth } from '@/context/AuthContext'
 import { SIDEBAR_NAV_ITEMS, CATEGORY_LABELS } from '@/routes/navItems'
 
 export const MobileDrawer: React.FC = () => {
   const { isMobileDrawerOpen, closeMobileDrawer } = useLayout()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
 
   if (!isMobileDrawerOpen) return null
 
@@ -62,20 +65,22 @@ export const MobileDrawer: React.FC = () => {
           >
             <div className="relative">
               <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-bold text-sm shadow-gold-sm">
-                AV
+                {user?.avatarInitials || user?.avatar_initials || 'CP'}
               </div>
               <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-cp-positive border-2 border-cp-card rounded-full" />
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-cp-text-primary truncate">Alex Vance</span>
+                <span className="text-sm font-bold text-cp-text-primary truncate">
+                  {user?.displayName || user?.name || user?.fullName || 'User'}
+                </span>
                 <Badge variant="gold" size="sm" className="px-1 py-0 text-[9px]">
-                  VIP 1
+                  {user?.vipLevel || user?.vip_level || 'VIP 1'}
                 </Badge>
               </div>
               <span className="text-xs text-cp-text-muted truncate block">
-                alex.v@coinplus.io
+                {user?.email || 'user@coinplus.io'}
               </span>
             </div>
             <ChevronRight className="w-4 h-4 text-cp-text-muted" />
@@ -180,7 +185,11 @@ export const MobileDrawer: React.FC = () => {
 
           <button
             type="button"
-            onClick={closeMobileDrawer}
+            onClick={async () => {
+              closeMobileDrawer()
+              await logout()
+              navigate('/login')
+            }}
             className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-cp-negative hover:bg-cp-negative/10 transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />

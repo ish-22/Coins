@@ -43,8 +43,10 @@ import {
   CreateTicketModal,
   TicketDetailModal,
 } from '@/components/support'
+import { useAuth } from '@/context/AuthContext'
 
 export const Support: React.FC = () => {
+  const { user } = useAuth()
   // Search & FAQ Category
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<SupportCategory | 'all'>('all')
@@ -111,7 +113,7 @@ export const Support: React.FC = () => {
             {
               id: `msg-${Date.now()}`,
               sender: 'user' as const,
-              senderName: 'Alex Vance',
+              senderName: user?.displayName || user?.name || user?.fullName || 'User',
               message: replyText,
               timestamp: timestampStr,
             },

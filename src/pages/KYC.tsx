@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ShieldCheck,
@@ -35,16 +35,43 @@ import {
 } from '@/mock/kycData'
 import { COUNTRY_OPTIONS } from '@/mock/accountData'
 import { MockDocumentUploader, StatusBanner } from '@/components/kyc'
+import { useAuth } from '@/context/AuthContext'
 
 export const KYC: React.FC = () => {
+  const { user } = useAuth()
+
   // Current user verification status
   const [status, setStatus] = useState<KYCStatus>('not_started')
 
   // Multi-step form step (1: Personal, 2: Address, 3: Document, 4: Review)
   const [currentStep, setCurrentStep] = useState<number>(1)
 
-  // Form draft
-  const [formData, setFormData] = useState<KYCFormData>(INITIAL_KYC_FORM)
+  // Form draft initialized with user details when available
+  const [formData, setFormData] = useState<KYCFormData>(() => {
+    if (!user) return INITIAL_KYC_FORM
+    const parts = (user.fullName || user.name || '').trim().split(' ')
+    return {
+      ...INITIAL_KYC_FORM,
+      firstName: parts[0] || INITIAL_KYC_FORM.firstName,
+      lastName: parts.slice(1).join(' ') || INITIAL_KYC_FORM.lastName,
+      country: user.country || INITIAL_KYC_FORM.country,
+      nationality: user.country || INITIAL_KYC_FORM.nationality,
+    }
+  })
+
+  // Synchronize form if user loads asynchronously
+  useEffect(() => {
+    if (user) {
+      const parts = (user.fullName || user.name || '').trim().split(' ')
+      setFormData((prev) => ({
+        ...prev,
+        firstName: parts[0] || prev.firstName,
+        lastName: parts.slice(1).join(' ') || prev.lastName,
+        country: user.country || prev.country,
+        nationality: user.country || prev.nationality,
+      }))
+    }
+  }, [user])
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({})
