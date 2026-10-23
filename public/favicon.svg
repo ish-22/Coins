@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F7C95C"/>
+      <stop offset="50%" stop-color="#F0B93A"/>
+      <stop offset="100%" stop-color="#D89C1D"/>
+    </linearGradient>
+    <linearGradient id="innerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141E2B"/>
+      <stop offset="100%" stop-color="#080B12"/>
+    </linearGradient>
+  </defs>
+  <!-- Geometric Hexagon Base -->
+  <polygon points="24,2 44,13.5 44,34.5 24,46 4,34.5 4,13.5" fill="url(#innerGrad)" stroke="url(#goldGrad)" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Geometric Facet Accents -->
+  <polygon points="24,6 40,15.2 40,32.8 24,42 8,32.8 8,15.2" fill="none" stroke="#243042" stroke-width="1" stroke-dasharray="2 2"/>
+  <!-- Central Emblem: Stylized C and Plus in Gold -->
+  <!-- Stylized C -->
+  <path d="M22 16 H16 C14.34 16 13 17.34 13 19 V29 C13 30.66 14.34 32 16 32 H22" stroke="url(#goldGrad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Precision Plus Mark -->
+  <path d="M28 24 H36 M32 20 V28" stroke="url(#goldGrad)" stroke-width="3" stroke-linecap="round"/>
+  <!-- Center Accent Point -->
+  <circle cx="24" cy="24" r="1.5" fill="#F0B93A" />
+</svg>
