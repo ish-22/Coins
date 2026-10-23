@@ -16,6 +16,7 @@ import {
   SupportTicket,
   SUPPORT_CATEGORIES,
 } from '@/mock/supportData'
+import { useAuth } from '@/context/AuthContext'
 
 export interface CreateTicketModalProps {
   isOpen: boolean
@@ -28,6 +29,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   onCreated,
   onClose,
 }) => {
+  const { user } = useAuth()
   const [subject, setSubject] = useState('')
   const [category, setCategory] = useState<SupportCategory>('trading')
   const [priority, setPriority] = useState<TicketPriority>('medium')
@@ -76,7 +78,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
           {
             id: `msg-${Date.now()}`,
             sender: 'user',
-            senderName: 'Alex Vance',
+            senderName: user?.displayName || user?.name || user?.fullName || 'User',
             message: description.trim(),
             timestamp: 'Just now',
             attachmentName: attachmentName || undefined,

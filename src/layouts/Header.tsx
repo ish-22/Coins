@@ -24,10 +24,12 @@ import { Logo } from '@/components/common/Logo'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
 import { useLayout } from '@/context/LayoutContext'
+import { useAuth } from '@/context/AuthContext'
 import { mockCryptoAssets } from '@/mock'
 
 export const Header: React.FC = () => {
   const { openMobileDrawer, isSearchOpen, setSearchOpen, toggleSearch } = useLayout()
+  const { user, logout } = useAuth()
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [themeMode, setThemeMode] = useState<'dark' | 'gold'>('dark')
@@ -285,11 +287,15 @@ export const Header: React.FC = () => {
                   aria-label="User profile menu"
                 >
                   <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-extrabold text-xs shadow-gold-sm">
-                    AV
+                    {user?.avatarInitials || user?.avatar_initials || 'CP'}
                   </div>
                   <div className="hidden md:flex flex-col text-left leading-none">
-                    <span className="text-xs font-bold text-cp-text-primary">Alex Vance</span>
-                    <span className="text-[10px] text-cp-gold font-medium mt-0.5">VIP 1</span>
+                    <span className="text-xs font-bold text-cp-text-primary">
+                      {user?.displayName || user?.name || user?.fullName || 'User'}
+                    </span>
+                    <span className="text-[10px] text-cp-gold font-medium mt-0.5">
+                      {user?.vipLevel || user?.vip_level || 'VIP 1'}
+                    </span>
                   </div>
                   <ChevronDown className="hidden md:block w-3.5 h-3.5 text-cp-text-muted" />
                 </button>
@@ -300,21 +306,21 @@ export const Header: React.FC = () => {
                     <div className="p-4 border-b border-cp-border bg-cp-card/60">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-bold text-sm">
-                          AV
+                          {user?.avatarInitials || user?.avatar_initials || 'CP'}
                         </div>
                         <div className="min-w-0 flex-1">
                           <span className="text-sm font-bold text-cp-text-primary truncate block">
-                            Alex Vance
+                            {user?.displayName || user?.name || user?.fullName || 'User'}
                           </span>
                           <span className="text-xs text-cp-text-muted truncate block">
-                            alex.v@coinplus.io
+                            {user?.email || 'user@coinplus.io'}
                           </span>
                         </div>
                       </div>
 
                       <div className="mt-3 p-2.5 rounded-lg bg-cp-elevated border border-cp-border flex items-center justify-between text-xs">
-                        <span className="text-cp-text-muted">Est. Assets:</span>
-                        <span className="font-mono font-bold text-cp-gold">$14,250.00 USDT</span>
+                        <span className="text-cp-text-muted">UID:</span>
+                        <span className="font-mono font-bold text-cp-gold">{user?.uid || '—'}</span>
                       </div>
                     </div>
 
@@ -348,7 +354,7 @@ export const Header: React.FC = () => {
                           <span>KYC Verification</span>
                         </div>
                         <Badge variant="positive" size="sm" className="text-[9px] py-0">
-                          Tier 2
+                          {user?.verificationTier || user?.kyc_tier || 'Tier 0'}
                         </Badge>
                       </Link>
 
@@ -365,8 +371,9 @@ export const Header: React.FC = () => {
                     <div className="p-1.5 border-t border-cp-border">
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           setProfileDropdownOpen(false)
+                          await logout()
                           navigate('/login')
                         }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-cp-negative hover:bg-cp-negative/10 transition-colors"

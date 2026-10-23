@@ -27,7 +27,6 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { Typography } from '@/components/common/Typography'
 import {
   UserAccountProfile,
   DEFAULT_USER_PROFILE,
@@ -38,20 +37,32 @@ import {
   DATE_FORMAT_OPTIONS,
 } from '@/mock/accountData'
 import { DiscardChangesModal } from '@/components/account'
+import { useAuth } from '@/context/AuthContext'
 
 export const Account: React.FC = () => {
-  // Saved profile persisted in localStorage
+  const { user, updateUser, refreshUser } = useAuth()
+
+  // Saved profile persisted in AuthContext / localStorage
   const [savedProfile, setSavedProfile] = useState<UserAccountProfile>(() => {
-    try {
-      const stored = localStorage.getItem('cp_user_account_profile')
-      return stored ? JSON.parse(stored) : DEFAULT_USER_PROFILE
-    } catch {
-      return DEFAULT_USER_PROFILE
-    }
+    return user || DEFAULT_USER_PROFILE
   })
 
   // Editable form state (draft)
-  const [formData, setFormData] = useState<UserAccountProfile>(savedProfile)
+  const [formData, setFormData] = useState<UserAccountProfile>(() => user || DEFAULT_USER_PROFILE)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Fetch latest profile from backend on mount
+  useEffect(() => {
+    refreshUser()
+  }, [refreshUser])
+
+  // Synchronize with auth user changes
+  useEffect(() => {
+    if (user) {
+      setSavedProfile(user)
+      setFormData(user)
+    }
+  }, [user])
 
   // Validation errors
   const [errors, setErrors] = useState<{
@@ -134,7 +145,7 @@ export const Account: React.FC = () => {
   }
 
   // Save changes handler
-  const handleSaveChanges = (e?: React.FormEvent) => {
+  const handleSaveChanges = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     if (!validate()) {
       triggerToast('Please resolve validation errors before saving.')
@@ -142,13 +153,16 @@ export const Account: React.FC = () => {
     }
 
     try {
-      localStorage.setItem('cp_user_account_profile', JSON.stringify(formData))
+      setIsSaving(true)
+      await updateUser(formData)
+      setSavedProfile(formData)
+      triggerToast('Account details updated successfully!')
     } catch {
-      // ignore
+      setSavedProfile(formData)
+      triggerToast('Preferences saved locally.')
+    } finally {
+      setIsSaving(false)
     }
-
-    setSavedProfile(formData)
-    triggerToast('Account details updated successfully!')
   }
 
   // Cancel edits button
@@ -171,15 +185,11 @@ export const Account: React.FC = () => {
   // Confirm discard changes
   const handleConfirmDiscard = () => {
     if (pendingDiscardAction === 'reset') {
-      try {
-        localStorage.removeItem('cp_user_account_profile')
-      } catch {
-        // ignore
-      }
-      setSavedProfile(DEFAULT_USER_PROFILE)
-      setFormData(DEFAULT_USER_PROFILE)
+      const base = user || DEFAULT_USER_PROFILE
+      setSavedProfile(base)
+      setFormData(base)
       setErrors({})
-      triggerToast('Reset account preferences to default settings.')
+      triggerToast('Reset account preferences.')
     } else {
       setFormData(savedProfile)
       setErrors({})
@@ -221,6 +231,7 @@ export const Account: React.FC = () => {
             <Button
               variant="secondary"
               size="sm"
+              disabled={isSaving}
               onClick={handleCancelClick}
             >
               Cancel
@@ -230,10 +241,10 @@ export const Account: React.FC = () => {
             variant="primary"
             size="sm"
             leftIcon={<Save className="w-4 h-4" />}
-            disabled={!isDirty}
+            disabled={!isDirty || isSaving}
             onClick={() => handleSaveChanges()}
           >
-            Save Changes
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
       </div>

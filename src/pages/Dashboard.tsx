@@ -35,8 +35,10 @@ import {
   AnnouncementsCard,
 } from '@/components/dashboard'
 import { walletService } from '@/services'
+import { useAuth } from '@/context/AuthContext'
 
 export const Dashboard: React.FC = () => {
+  const { user } = useAuth()
   const [hideBalances, setHideBalances] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [currencyUnit, setCurrencyUnit] = useState<'USD' | 'BTC'>('USD')
@@ -123,7 +125,7 @@ export const Dashboard: React.FC = () => {
           <div className="flex items-start sm:items-center gap-4 sm:gap-5">
             <div className="relative shrink-0">
               <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-cp-gold via-cp-gold/80 to-cp-gold/30 flex items-center justify-center text-cp-bg font-extrabold text-xl shadow-gold-sm">
-                AV
+                {user?.avatarInitials || user?.avatar_initials || 'CP'}
               </div>
               <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-cp-positive border-2 border-cp-elevated rounded-full" />
             </div>
@@ -131,25 +133,25 @@ export const Dashboard: React.FC = () => {
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                 <Typography variant="h2" className="text-xl sm:text-2xl font-extrabold">
-                  Welcome back, {mockUserProfile.name}
+                  Welcome back, {user?.displayName || user?.name || user?.fullName || 'Trader'}
                 </Typography>
                 <Badge variant="gold" size="sm" withDot>
-                  VIP Tier {mockUserProfile.vipTier}
+                  {user?.vipLevel || user?.vip_level || 'VIP 1'}
                 </Badge>
                 <Badge variant="positive" size="sm" className="hidden sm:inline-flex">
                   <ShieldCheck className="w-3 h-3 mr-1" />
-                  {mockUserProfile.kycTier}
+                  {user?.verificationTier || user?.kyc_tier || 'Tier 0'}
                 </Badge>
               </div>
 
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-cp-text-muted font-mono">
-                <span>UID: {mockUserProfile.uid}</span>
+                <span>UID: {user?.uid || '—'}</span>
                 <span>•</span>
                 <span>Spot Maker: <span className="text-cp-gold">{mockUserProfile.makerFee}</span></span>
                 <span>•</span>
                 <span>Spot Taker: <span className="text-cp-gold">{mockUserProfile.takerFee}</span></span>
                 <span className="hidden md:inline">•</span>
-                <span className="hidden md:inline font-sans text-cp-text-secondary">{mockUserProfile.lastLogin}</span>
+                <span className="hidden md:inline font-sans text-cp-text-secondary">{user?.email || mockUserProfile.email}</span>
               </div>
             </div>
           </div>
