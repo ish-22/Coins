@@ -8,7 +8,25 @@ import {
   AdminAnnouncement,
   AdminAssetRecord,
   AdminAuditLog,
+  AdminSupportTicket,
 } from '@/mock/adminData'
+
+const normalizeAdminUser = (user: Partial<AdminUser> & Record<string, any>): AdminUser => ({
+  id: String(user.id ?? ''),
+  userRef: user.userRef ?? user.uid ?? 'UID-N/A',
+  name: user.name ?? user.full_name ?? 'Unknown User',
+  email: user.email ?? '',
+  country: user.country ?? 'United States',
+  countryCode: user.countryCode ?? user.country_code ?? 'US',
+  status: (user.status as AdminUser['status']) ?? 'pending',
+  kycTier: (user.kycTier as AdminUser['kycTier']) ?? 'Tier 0',
+  balanceUsd: Number(user.balanceUsd ?? 0),
+  registeredAt: user.registeredAt ?? user.created_at ?? 'N/A',
+  lastLogin: user.lastLogin ?? 'N/A',
+  twoFactorEnabled: Boolean(user.twoFactorEnabled ?? false),
+  passkeyRegistered: Boolean(user.passkeyRegistered ?? user.passkeysRegistered ?? false),
+  ipAddress: user.ipAddress ?? '127.0.0.1',
+})
 
 export const adminService = {
   async getMetrics() {
@@ -17,8 +35,8 @@ export const adminService = {
   },
 
   async getUsers(): Promise<AdminUser[]> {
-    const res = await apiClient.get<{ users: AdminUser[] }>('/admin/users')
-    return res.data.users
+    const res = await apiClient.get<{ users: any[] }>('/admin/users')
+    return (res.data.users ?? []).map(normalizeAdminUser)
   },
 
   async updateUserStatus(id: string | number, status: 'active' | 'suspended' | 'pending') {
@@ -55,8 +73,18 @@ export const adminService = {
   },
 
   async getAnnouncements(): Promise<AdminAnnouncement[]> {
-    const res = await apiClient.get<{ announcements: AdminAnnouncement[] }>('/admin/announcements')
+    const res = await apiClient.get<{ announcements: AdminAnnouncement[] }>('/announcements')
     return res.data.announcements
+  },
+
+  async getSupportTickets(): Promise<AdminSupportTicket[]> {
+    const res = await apiClient.get<{ tickets: AdminSupportTicket[] }>('/admin/support-tickets')
+    return res.data.tickets
+  },
+
+  async replySupportTicket(id: string | number, message: string) {
+    const res = await apiClient.post(`/admin/support-tickets/${id}/reply`, { message })
+    return res.data
   },
 
   async createAnnouncement(data: {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Coins,
   Search,
@@ -9,14 +9,17 @@ import {
   Sliders,
   Sparkles,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
+import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { AdminAssetRecord, INITIAL_ADMIN_ASSETS } from '@/mock/adminData'
+import { AdminAssetRecord } from '@/mock/adminData'
 import { formatUSD } from '@/utils/formatters'
+import { adminService } from '@/services'
 
 export const AdminAssets: React.FC = () => {
-  const [assets, setAssets] = useState<AdminAssetRecord[]>(INITIAL_ADMIN_ASSETS)
+  const [assets, setAssets] = useState<AdminAssetRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
   // Toggle confirmation modal state
@@ -35,33 +38,75 @@ export const AdminAssets: React.FC = () => {
     setConfirmFeature(feature)
   }
 
-  const handleConfirmToggle = () => {
+  useEffect(() => {
+    let isMounted = true
+    const loadAssets = async () => {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        const liveAssets = await adminService.getAssets()
+        if (isMounted) setAssets(liveAssets)
+      } catch (error: any) {
+        if (isMounted) {
+          setLoadError(error?.response?.data?.message || 'Unable to load asset configuration from the API.')
+          setAssets([])
+        }
+      } finally {
+        if (isMounted) setIsLoading(false)
+      }
+    }
+
+    loadAssets()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const handleConfirmToggle = async () => {
     if (!confirmAsset || !confirmFeature) return
 
-    setAssets((prev) =>
-      prev.map((a) => {
-        if (a.id !== confirmAsset.id) return a
+    try {
+      const updatedState =
+        confirmFeature === 'deposit'
+          ? !confirmAsset.depositEnabled
+          : confirmFeature === 'withdraw'
+            ? !confirmAsset.withdrawEnabled
+            : !confirmAsset.tradingEnabled
 
-        if (confirmFeature === 'deposit') {
-          return { ...a, depositEnabled: !a.depositEnabled }
-        } else if (confirmFeature === 'withdraw') {
-          return { ...a, withdrawEnabled: !a.withdrawEnabled }
-        } else {
-          return { ...a, tradingEnabled: !a.tradingEnabled }
-        }
+      await adminService.updateAsset(String(confirmAsset.id), {
+        depositEnabled: confirmFeature === 'deposit' ? updatedState : confirmAsset.depositEnabled,
+        withdrawEnabled: confirmFeature === 'withdraw' ? updatedState : confirmAsset.withdrawEnabled,
+        tradingEnabled: confirmFeature === 'trading' ? updatedState : confirmAsset.tradingEnabled,
       })
-    )
 
-    const currentState =
-      confirmFeature === 'deposit'
-        ? confirmAsset.depositEnabled
-        : confirmFeature === 'withdraw'
-        ? confirmAsset.withdrawEnabled
-        : confirmAsset.tradingEnabled
+      setAssets((prev) =>
+        prev.map((a) => {
+          if (a.id !== confirmAsset.id) return a
 
-    setToastMessage(
-      `${confirmAsset.symbol} ${confirmFeature} status switched to ${!currentState ? 'ENABLED' : 'DISABLED'} (Simulated State).`
-    )
+          if (confirmFeature === 'deposit') {
+            return { ...a, depositEnabled: updatedState }
+          } else if (confirmFeature === 'withdraw') {
+            return { ...a, withdrawEnabled: updatedState }
+          } else {
+            return { ...a, tradingEnabled: updatedState }
+          }
+        })
+      )
+
+      const currentState =
+        confirmFeature === 'deposit'
+          ? confirmAsset.depositEnabled
+          : confirmFeature === 'withdraw'
+            ? confirmAsset.withdrawEnabled
+            : confirmAsset.tradingEnabled
+
+      setToastMessage(
+        `${confirmAsset.symbol} ${confirmFeature} status switched to ${!currentState ? 'ENABLED' : 'DISABLED'} via the live backend.`
+      )
+    } catch (error: any) {
+      setToastMessage(error?.response?.data?.message || 'The asset toggle could not be updated in the admin API.')
+    }
+
     setTimeout(() => setToastMessage(null), 3500)
 
     setConfirmAsset(null)
@@ -87,6 +132,18 @@ export const AdminAssets: React.FC = () => {
           </Badge>
         </div>
       </div>
+
+      {loadError && (
+        <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative">
+          {loadError}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="p-4 rounded-xl border border-cp-border bg-cp-card text-xs text-cp-text-muted">
+          Loading asset configuration from the backend...
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toastMessage && (

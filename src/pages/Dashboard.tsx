@@ -23,10 +23,6 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Ca
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
 import { Typography } from '@/components/common/Typography'
-import {
-  mockUserProfile,
-  mockPortfolioSummary,
-} from '@/mock/dashboardData'
 import { formatCurrency, formatCrypto } from '@/utils/formatters'
 import {
   PortfolioChart,
@@ -41,15 +37,26 @@ export const Dashboard: React.FC = () => {
   const { user } = useAuth()
   const [hideBalances, setHideBalances] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [currencyUnit, setCurrencyUnit] = useState<'USD' | 'BTC'>('USD')
-  const [portfolioSummary, setPortfolioSummary] = useState(mockPortfolioSummary)
+  const [portfolioSummary, setPortfolioSummary] = useState({
+    totalBalanceUsd: 0,
+    totalBalanceBtc: 0,
+    totalBalanceEur: 0,
+    availableBalanceUsd: 0,
+    availableBalanceBtc: 0,
+    lockedBalanceUsd: 0,
+    lockedBalanceBtc: 0,
+    change24hUsd: 0,
+    change24hPercentage: 0,
+    totalAssetsCount: 0,
+    verificationTier: user?.verificationTier || 'Tier 0',
+    dailyWithdrawRemainingUsd: 0,
+  })
 
   const fetchSummary = async () => {
     try {
       const summary = await walletService.getSummary()
-      if (summary && summary.totalBalanceUsd > 0) {
-        setPortfolioSummary((prev) => ({
-          ...prev,
+      if (summary && summary.totalBalanceUsd >= 0) {
+        setPortfolioSummary({
           totalBalanceUsd: summary.totalBalanceUsd,
           totalBalanceBtc: summary.totalBalanceBtc,
           totalBalanceEur: summary.totalBalanceEur,
@@ -57,10 +64,15 @@ export const Dashboard: React.FC = () => {
           availableBalanceBtc: summary.availableBalanceBtc,
           lockedBalanceUsd: summary.lockedBalanceUsd,
           lockedBalanceBtc: summary.lockedBalanceBtc,
-        }))
+          change24hUsd: summary.change24hUsd,
+          change24hPercentage: summary.change24hPercentage,
+          totalAssetsCount: summary.totalAssetsCount,
+          verificationTier: summary.verificationTier || user?.verificationTier || 'Tier 0',
+          dailyWithdrawRemainingUsd: summary.dailyWithdrawRemainingUsd,
+        })
       }
     } catch {
-      // Graceful fallback to mock data
+      // Keep the current live data or empty state when the API is unavailable.
     }
   }
 
@@ -90,14 +102,13 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">
-      {/* Demonstration Notice Strip */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-cp-elevated border border-cp-gold/30 text-xs shadow-sm">
         <div className="flex items-center gap-2.5">
           <Badge variant="gold" size="sm" withDot pulseDot className="shrink-0">
-            DEMO ENVIRONMENT
+            LIVE ACCOUNT
           </Badge>
           <span className="text-cp-text-secondary leading-relaxed">
-            All balances, market data, and order history on this dashboard are simulated demonstration data for evaluation.
+            Portfolio data is synced from your wallet and account profile on the backend.
           </span>
         </div>
 
@@ -147,11 +158,11 @@ export const Dashboard: React.FC = () => {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-cp-text-muted font-mono">
                 <span>UID: {user?.uid || '—'}</span>
                 <span>•</span>
-                <span>Spot Maker: <span className="text-cp-gold">{mockUserProfile.makerFee}</span></span>
+                <span>Spot Maker: <span className="text-cp-gold">0.02%</span></span>
                 <span>•</span>
-                <span>Spot Taker: <span className="text-cp-gold">{mockUserProfile.takerFee}</span></span>
+                <span>Spot Taker: <span className="text-cp-gold">0.04%</span></span>
                 <span className="hidden md:inline">•</span>
-                <span className="hidden md:inline font-sans text-cp-text-secondary">{user?.email || mockUserProfile.email}</span>
+                <span className="hidden md:inline font-sans text-cp-text-secondary">{user?.email || 'No email available'}</span>
               </div>
             </div>
           </div>
@@ -195,10 +206,10 @@ export const Dashboard: React.FC = () => {
 
           <div>
             <div className="font-mono text-2xl sm:text-3xl font-extrabold text-cp-text-primary tracking-tight">
-              {maskValue(formatCurrency(mockPortfolioSummary.totalBalanceUsd))}
+              {maskValue(formatCurrency(portfolioSummary.totalBalanceUsd))}
             </div>
             <div className="font-mono text-xs text-cp-text-muted mt-0.5">
-              ≈ {maskValue(`${mockPortfolioSummary.totalBalanceBtc} BTC`)}
+              ≈ {maskValue(`${portfolioSummary.totalBalanceBtc.toFixed(5)} BTC`)}
             </div>
           </div>
 
@@ -217,26 +228,26 @@ export const Dashboard: React.FC = () => {
               24h Profit / Loss
             </span>
             <Badge variant="positive" size="sm">
-              +{mockPortfolioSummary.pnl24hPercentage}%
+              +{Math.abs(portfolioSummary.change24hPercentage).toFixed(2)}%
             </Badge>
           </div>
 
           <div>
             <div className="font-mono text-2xl sm:text-3xl font-extrabold text-cp-positive tracking-tight">
-              {maskValue(`+${formatCurrency(mockPortfolioSummary.pnl24hUsd)}`)}
+              {maskValue(`+${formatCurrency(portfolioSummary.change24hUsd)}`)}
             </div>
             <div className="flex items-center gap-2 text-xs text-cp-text-muted mt-0.5">
-              <span>All-time ROI:</span>
+              <span>Wallet health:</span>
               <span className="font-mono text-cp-positive font-bold">
-                +{mockPortfolioSummary.allTimeRoiPercentage}%
+                {portfolioSummary.totalAssetsCount} active assets
               </span>
             </div>
           </div>
 
           <div className="pt-2 border-t border-cp-border/60 flex items-center justify-between text-xs">
-            <span className="text-cp-text-muted">Top Performer:</span>
+            <span className="text-cp-text-muted">Verification:</span>
             <span className="text-cp-gold font-mono font-semibold">
-              {mockPortfolioSummary.bestPerformerSymbol} ({mockPortfolioSummary.bestPerformerGain})
+              {portfolioSummary.verificationTier}
             </span>
           </div>
         </Card>
@@ -255,10 +266,10 @@ export const Dashboard: React.FC = () => {
 
           <div>
             <div className="font-mono text-2xl sm:text-3xl font-extrabold text-cp-text-primary tracking-tight">
-              {maskValue(formatCurrency(mockPortfolioSummary.availableBalanceUsd))}
+              {maskValue(formatCurrency(portfolioSummary.availableBalanceUsd))}
             </div>
             <div className="font-mono text-xs text-cp-text-muted mt-0.5">
-              ≈ {maskValue(`${mockPortfolioSummary.availableBalanceBtc} BTC`)}
+              ≈ {maskValue(`${portfolioSummary.availableBalanceBtc.toFixed(5)} BTC`)}
             </div>
           </div>
 
@@ -289,10 +300,10 @@ export const Dashboard: React.FC = () => {
 
           <div>
             <div className="font-mono text-2xl sm:text-3xl font-extrabold text-cp-text-primary tracking-tight">
-              {maskValue(formatCurrency(mockPortfolioSummary.lockedBalanceUsd))}
+              {maskValue(formatCurrency(portfolioSummary.lockedBalanceUsd))}
             </div>
             <div className="font-mono text-xs text-cp-text-muted mt-0.5">
-              ≈ {maskValue(`${mockPortfolioSummary.lockedBalanceBtc} BTC`)}
+              ≈ {maskValue(`${portfolioSummary.lockedBalanceBtc.toFixed(5)} BTC`)}
             </div>
           </div>
 

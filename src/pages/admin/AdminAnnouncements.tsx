@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Megaphone,
   Plus,
@@ -12,13 +12,16 @@ import {
   ShieldAlert,
   Info,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
+import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { AdminAnnouncement, INITIAL_ADMIN_ANNOUNCEMENTS } from '@/mock/adminData'
+import { AdminAnnouncement } from '@/mock/adminData'
+import { adminService } from '@/services'
 
 export const AdminAnnouncements: React.FC = () => {
-  const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>(INITIAL_ADMIN_ANNOUNCEMENTS)
+  const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   // Create / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -56,13 +59,42 @@ export const AdminAnnouncements: React.FC = () => {
     setIsModalOpen(true)
   }
 
-  const handleDelete = (id: string, aTitle: string) => {
-    setAnnouncements((prev) => prev.filter((a) => a.id !== id))
-    setToastMessage(`Announcement "${aTitle}" removed from demonstration feed.`)
+  useEffect(() => {
+    let isMounted = true
+    const loadAnnouncements = async () => {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        const liveAnnouncements = await adminService.getAnnouncements()
+        if (isMounted) setAnnouncements(liveAnnouncements)
+      } catch (error: any) {
+        if (isMounted) {
+          setLoadError(error?.response?.data?.message || 'Unable to load announcements from the backend.')
+          setAnnouncements([])
+        }
+      } finally {
+        if (isMounted) setIsLoading(false)
+      }
+    }
+
+    loadAnnouncements()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const handleDelete = async (id: string, aTitle: string) => {
+    try {
+      await adminService.deleteAnnouncement(id)
+      setAnnouncements((prev) => prev.filter((a) => a.id !== id))
+      setToastMessage(`Announcement "${aTitle}" removed from the live platform feed.`)
+    } catch (error: any) {
+      setToastMessage(error?.response?.data?.message || 'Unable to delete announcement from the backend.')
+    }
     setTimeout(() => setToastMessage(null), 3500)
   }
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !content.trim()) {
       setFormError('Title and announcement content are required.')
@@ -77,20 +109,32 @@ export const AdminAnnouncements: React.FC = () => {
             : a
         )
       )
-      setToastMessage(`Announcement "${title.trim()}" updated successfully.`)
+      setToastMessage(`Announcement "${title.trim()}" updated in the active view. Backend editing is not yet exposed in this API.`)
     } else {
-      const newAnn: AdminAnnouncement = {
-        id: `anc-${Date.now()}`,
-        title: title.trim(),
-        content: content.trim(),
-        type,
-        targetAudience,
-        status,
-        createdAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
-        validUntil,
+      try {
+        const response = await adminService.createAnnouncement({
+          title: title.trim(),
+          content: content.trim(),
+          type,
+          targetAudience,
+          validUntil,
+        })
+        const newAnn: AdminAnnouncement = {
+          id: String(response.announcement?.id ?? `anc-${Date.now()}`),
+          title: title.trim(),
+          content: content.trim(),
+          type,
+          targetAudience,
+          status,
+          createdAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+          validUntil,
+        }
+        setAnnouncements((prev) => [newAnn, ...prev])
+        setToastMessage(response?.message || `New announcement published to the live banner.`)
+      } catch (error: any) {
+        setFormError(error?.response?.data?.message || 'Unable to publish the announcement to the backend.')
+        return
       }
-      setAnnouncements((prev) => [newAnn, ...prev])
-      setToastMessage(`New announcement published to demonstration banner.`)
     }
 
     setTimeout(() => setToastMessage(null), 3500)
@@ -115,6 +159,18 @@ export const AdminAnnouncements: React.FC = () => {
           Create Announcement
         </Button>
       </div>
+
+      {loadError && (
+        <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative">
+          {loadError}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="p-4 rounded-xl border border-cp-border bg-cp-card text-xs text-cp-text-muted">
+          Loading platform announcements from the live API...
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toastMessage && (

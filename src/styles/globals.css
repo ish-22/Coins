@@ -1,97 +1,139 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 @layer base {
-  :root {
-    --bg-main: #080B12;
-    --bg-card: #101824;
-    --bg-elevated: #141E2B;
-    --color-gold: #F0B93A;
-    --text-primary: #F4F6FA;
-    --text-secondary: #98A5B7;
-    --border-color: #243042;
-    --positive-green: #00D6A0;
-    --negative-red: #FF5364;
-  }
-
-  * {
-    border-color: #243042;
-  }
-
-  html {
-    color-scheme: dark;
-    scroll-behavior: smooth;
-  }
-
-  body {
-    background-color: #080B12;
-    color: #F4F6FA;
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* Custom high-performance dark scrollbar for trading interfaces */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: #080B12;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: #243042;
-    border-radius: 3px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #314159;
-  }
+     :root {
+        --bg-main: #080B12;
+        --bg-card: #101824;
+        --bg-elevated: #141E2B;
+        --bg-base: #080B12;
+        --color-gold: #F0B93A;
+        --text-primary: #F4F6FA;
+        --text-secondary: #98A5B7;
+        --text-muted: #627185;
+        --border-color: #243042;
+        --positive-green: #00D6A0;
+        --negative-red: #FF5364;
+    }
+     :root[data-theme='light'] {
+        --bg-main: #f3f7ff;
+        --bg-card: #ffffff;
+        --bg-elevated: #edf3ff;
+        --bg-base: #f3f7ff;
+        --color-gold: #c9870c;
+        --text-primary: #111827;
+        --text-secondary: #475569;
+        --text-muted: #64748b;
+        --border-color: #d9e2f1;
+        --positive-green: #059669;
+        --negative-red: #dc2626;
+    }
+    * {
+        border-color: var(--border-color);
+    }
+    html {
+        color-scheme: dark;
+        scroll-behavior: smooth;
+    }
+    html[data-theme='light'] {
+        color-scheme: light;
+    }
+    body {
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+    html[data-theme='light'] body,
+    html[data-theme='light'] .bg-cp-bg,
+    html[data-theme='light'] .bg-cp-base,
+    html[data-theme='light'] .bg-cp-card,
+    html[data-theme='light'] .bg-cp-elevated,
+    html[data-theme='light'] .bg-cp-card\/60,
+    html[data-theme='light'] .bg-cp-card\/80,
+    html[data-theme='light'] .bg-cp-elevated\/40,
+    html[data-theme='light'] .bg-cp-elevated\/70,
+    html[data-theme='light'] .bg-cp-base\/90 {
+        background-color: var(--bg-main) !important;
+    }
+    html[data-theme='light'] .bg-cp-card,
+    html[data-theme='light'] .bg-cp-card\/60,
+    html[data-theme='light'] .bg-cp-card\/80,
+    html[data-theme='light'] .bg-cp-elevated,
+    html[data-theme='light'] .bg-cp-elevated\/40,
+    html[data-theme='light'] .bg-cp-elevated\/70 {
+        background-color: var(--bg-card) !important;
+    }
+    html[data-theme='light'] .text-cp-text-primary {
+        color: var(--text-primary) !important;
+    }
+    html[data-theme='light'] .text-cp-text-secondary {
+        color: var(--text-secondary) !important;
+    }
+    html[data-theme='light'] .text-cp-text-muted {
+        color: var(--text-muted) !important;
+    }
+    html[data-theme='light'] .border-cp-border,
+    html[data-theme='light'] .border-cp-border\/50,
+    html[data-theme='light'] .border-cp-border\/80,
+    html[data-theme='light'] .border-cp-border-light {
+        border-color: var(--border-color) !important;
+    }
+    html[data-theme='light'] .text-cp-bg {
+        color: #f5f7ff !important;
+    }
+    /* Custom high-performance dark scrollbar for trading interfaces */
+     ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+     ::-webkit-scrollbar-track {
+        background: #080B12;
+    }
+     ::-webkit-scrollbar-thumb {
+        background: #243042;
+        border-radius: 3px;
+    }
+     ::-webkit-scrollbar-thumb:hover {
+        background: #314159;
+    }
 }
 
 @layer components {
-  /* Premium Trading Platform Card Presets */
-  .cp-card {
-    background-color: #101824;
-    border: 1px solid #243042;
-    border-radius: 0.75rem;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .cp-card:hover {
-    border-color: #314159;
-  }
-
-  .cp-card-elevated {
-    background-color: #141E2B;
-    border: 1px solid #243042;
-    border-radius: 0.75rem;
-    box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5);
-  }
-
-  .cp-card-gold {
-    background: linear-gradient(180deg, #141E2B 0%, #101824 100%);
-    border: 1px solid rgba(240, 185, 58, 0.25);
-    box-shadow: 0 0 20px rgba(240, 185, 58, 0.08);
-  }
-
-  /* Gold glowing subtle border */
-  .cp-border-gold-glow {
-    border-color: rgba(240, 185, 58, 0.3);
-    box-shadow: 0 0 15px rgba(240, 185, 58, 0.15);
-  }
-
-  /* Market Data numbers styling */
-  .cp-number {
-    font-family: 'JetBrains Mono', monospace;
-    font-feature-settings: 'tnum' on, 'zero' on;
-  }
-
-  /* Subtle shimmer backdrop */
-  .cp-shimmer-bg {
-    background-image: radial-gradient(circle at 50% 0%, rgba(240, 185, 58, 0.05) 0%, transparent 60%);
-  }
+    /* Premium Trading Platform Card Presets */
+    .cp-card {
+        background-color: #101824;
+        border: 1px solid #243042;
+        border-radius: 0.75rem;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .cp-card:hover {
+        border-color: #314159;
+    }
+    .cp-card-elevated {
+        background-color: #141E2B;
+        border: 1px solid #243042;
+        border-radius: 0.75rem;
+        box-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5);
+    }
+    .cp-card-gold {
+        background: linear-gradient(180deg, #141E2B 0%, #101824 100%);
+        border: 1px solid rgba(240, 185, 58, 0.25);
+        box-shadow: 0 0 20px rgba(240, 185, 58, 0.08);
+    }
+    /* Gold glowing subtle border */
+    .cp-border-gold-glow {
+        border-color: rgba(240, 185, 58, 0.3);
+        box-shadow: 0 0 15px rgba(240, 185, 58, 0.15);
+    }
+    /* Market Data numbers styling */
+    .cp-number {
+        font-family: 'JetBrains Mono', monospace;
+        font-feature-settings: 'tnum' on, 'zero' on;
+    }
+    /* Subtle shimmer backdrop */
+    .cp-shimmer-bg {
+        background-image: radial-gradient(circle at 50% 0%, rgba(240, 185, 58, 0.05) 0%, transparent 60%);
+    }
 }

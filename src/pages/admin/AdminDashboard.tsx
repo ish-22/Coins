@@ -19,30 +19,37 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import {
-  INITIAL_ADMIN_USERS,
-  INITIAL_ADMIN_KYC_CASES,
-  INITIAL_ADMIN_DEPOSITS,
-  INITIAL_ADMIN_WITHDRAWALS,
-  INITIAL_ADMIN_ORDERS,
-  INITIAL_ADMIN_AUDIT_LOGS,
-} from '@/mock/adminData'
 import { formatUSD } from '@/utils/formatters'
 import { adminService } from '@/services'
 
 export const AdminDashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<any>(null)
+  const [auditLogs, setAuditLogs] = useState<any[]>([])
 
   useEffect(() => {
-    adminService.getMetrics().then(res => {
-      if (res?.metrics) setMetrics(res.metrics)
-    }).catch(() => {})
+    const loadDashboardData = async () => {
+      try {
+        const metricsResponse = await adminService.getMetrics()
+        setMetrics(metricsResponse?.metrics ?? metricsResponse ?? null)
+      } catch {
+        setMetrics(null)
+      }
+
+      try {
+        const logs = await adminService.getAuditLogs()
+        setAuditLogs(Array.isArray(logs) ? logs : [])
+      } catch {
+        setAuditLogs([])
+      }
+    }
+
+    loadDashboardData()
   }, [])
 
-  const pendingKycCount = metrics?.pendingKycCount ?? INITIAL_ADMIN_KYC_CASES.filter((c) => c.status === 'pending' || c.status === 'in_review').length
-  const pendingWithdrawalCount = metrics?.pendingWithdrawalsCount ?? INITIAL_ADMIN_WITHDRAWALS.filter((w) => w.status === 'pending_review').length
-  const pendingDepositCount = INITIAL_ADMIN_DEPOSITS.filter((d) => d.status === 'confirming' || d.status === 'pending').length
-  const totalVolume24h = metrics?.volume24hUsd ?? (INITIAL_ADMIN_ORDERS.reduce((acc, curr) => acc + curr.totalUsd, 0) * 12)
+  const totalUsers = metrics?.totalUsers ?? 0
+  const pendingKycCount = metrics?.pendingKycCount ?? 0
+  const pendingWithdrawalCount = metrics?.pendingWithdrawalsCount ?? 0
+  const totalVolume24h = metrics?.volume24hUsd ?? 0
 
   return (
     <div className="space-y-6">
@@ -60,7 +67,7 @@ export const AdminDashboard: React.FC = () => {
         <div className="flex items-center gap-2">
           <Badge variant="positive" size="sm" className="px-2.5 py-1">
             <span className="w-1.5 h-1.5 rounded-full bg-cp-positive animate-pulse mr-1" />
-            All Simulated Services Operational
+            Live platform services operational
           </Badge>
         </div>
       </div>
@@ -80,11 +87,11 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <div>
               <span className="text-2xl font-black font-mono text-cp-text-primary block">
-                1,420
+                {totalUsers.toLocaleString()}
               </span>
               <span className="text-[11px] text-cp-positive font-semibold flex items-center gap-1 mt-0.5">
                 <TrendingUp className="w-3 h-3" />
-                +14 new this week
+                Live database count
               </span>
             </div>
           </CardContent>
@@ -229,7 +236,7 @@ export const AdminDashboard: React.FC = () => {
             </CardHeader>
 
             <CardContent className="p-0 divide-y divide-cp-border/60">
-              {INITIAL_ADMIN_AUDIT_LOGS.slice(0, 4).map((log) => (
+              {auditLogs.slice(0, 4).map((log) => (
                 <div key={log.id} className="p-4 hover:bg-cp-elevated/30 transition-colors flex items-start justify-between gap-3 text-xs">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">

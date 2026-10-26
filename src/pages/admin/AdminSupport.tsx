@@ -1,8 +1,7 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Headphones,
   Search,
-  Filter,
   Eye,
   MessageSquare,
   Send,
@@ -12,13 +11,16 @@ import {
   User,
   ShieldCheck,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
+import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { AdminSupportTicket, INITIAL_ADMIN_TICKETS } from '@/mock/adminData'
+import { AdminSupportTicket } from '@/mock/adminData'
+import { adminService } from '@/services'
 
 export const AdminSupport: React.FC = () => {
-  const [tickets, setTickets] = useState<AdminSupportTicket[]>(INITIAL_ADMIN_TICKETS)
+  const [tickets, setTickets] = useState<AdminSupportTicket[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'waiting_user' | 'resolved'>('all')
   const [selectedTicket, setSelectedTicket] = useState<AdminSupportTicket | null>(null)
@@ -48,19 +50,43 @@ export const AdminSupport: React.FC = () => {
     }
   }
 
-  const handleSendReply = (e: React.FormEvent) => {
+  useEffect(() => {
+    let isMounted = true
+    const loadTickets = async () => {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        const liveTickets = await adminService.getSupportTickets()
+        if (isMounted) setTickets(liveTickets)
+      } catch (error: any) {
+        if (isMounted) {
+          setLoadError(error?.response?.data?.message || 'Unable to load support tickets from the backend.')
+          setTickets([])
+        }
+      } finally {
+        if (isMounted) setIsLoading(false)
+      }
+    }
+
+    loadTickets()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!replyMessage.trim() || !selectedTicket) return
 
     setIsSending(true)
-    setTimeout(() => {
-      setIsSending(false)
+    try {
+      const response = await adminService.replySupportTicket(selectedTicket.id, replyMessage.trim())
       const newMsg = {
-        id: `msg-${Date.now()}`,
+        id: String(response?.reply?.id ?? `msg-${Date.now()}`),
         sender: 'agent' as const,
         senderName: 'Chief Operator (Staff)',
         message: replyMessage.trim(),
-        timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        timestamp: response?.reply?.created_at ? new Date(response.reply.created_at).toISOString().replace('T', ' ').slice(0, 16) : new Date().toISOString().replace('T', ' ').slice(0, 16),
       }
 
       setTickets((prev) =>
@@ -88,7 +114,11 @@ export const AdminSupport: React.FC = () => {
       )
 
       setReplyMessage('')
-    }, 400)
+    } catch (error: any) {
+      setLoadError(error?.response?.data?.message || 'The support agent reply could not be posted to the backend.')
+    } finally {
+      setIsSending(false)
+    }
   }
 
   return (
@@ -110,6 +140,18 @@ export const AdminSupport: React.FC = () => {
           </Badge>
         </div>
       </div>
+
+      {loadError && (
+        <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative">
+          {loadError}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="p-4 rounded-xl border border-cp-border bg-cp-card text-xs text-cp-text-muted">
+          Loading live support queue from the backend...
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <Card className="bg-[#0c121c] border-cp-border">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowDownToLine,
@@ -6,29 +6,81 @@ import {
   ArrowLeftRight,
   Sparkles,
   ExternalLink,
-  Clock,
-  CheckCircle2,
   AlertCircle,
-  XCircle,
-  Filter,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
-import { Card, CardHeader, CardTitle } from '@/components/common/Card'
+import { Card, CardTitle } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
-import { Button } from '@/components/common/Button'
-import {
-  mockRecentTransactions,
-  mockRecentOrders,
-  RecentTransaction,
-  RecentOrder,
-} from '@/mock/dashboardData'
+import { RecentTransaction, RecentOrder } from '@/mock/dashboardData'
 import { formatCurrency, formatCrypto, truncateHash } from '@/utils/formatters'
+import { tradeService, walletService } from '@/services'
 
 export const RecentActivity: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'orders' | 'transactions'>('orders')
   const [statusFilter, setStatusFilter] = useState<'all' | 'filled' | 'open'>('all')
+  const [orders, setOrders] = useState<RecentOrder[]>([])
+  const [transactions, setTransactions] = useState<RecentTransaction[]>([])
 
-  const filteredOrders = mockRecentOrders.filter((ord) => {
+  useEffect(() => {
+    let isMounted = true
+
+    const loadActivity = async () => {
+      try {
+        const [tradeData, txData] = await Promise.all([
+          tradeService.getOrders(),
+          walletService.getTransactions(),
+        ])
+
+        if (!isMounted) return
+
+        const mappedOrders: RecentOrder[] = [...(tradeData.openOrders ?? []), ...(tradeData.orderHistory ?? [])]
+          .slice(0, 5)
+          .map((order: any) => ({
+            id: String(order.id),
+            pair: order.pair,
+            side: order.side,
+            type: order.type,
+            priceUsd: Number(order.price ?? 0),
+            amount: Number(order.amount ?? 0),
+            filledAmount: Number(order.filled ?? 0),
+            totalUsd: Number(order.total ?? 0),
+            filledPercentage: Number(order.amount) > 0 ? (Number(order.filled ?? 0) / Number(order.amount)) * 100 : 0,
+            status: order.status,
+            date: String(order.time || 'Today'),
+            time: String(order.time || 'Now'),
+          }))
+
+        const mappedTransactions: RecentTransaction[] = (txData ?? []).slice(0, 5).map((tx: any) => ({
+          id: String(tx.id),
+          type: tx.type,
+          asset: tx.asset,
+          amount: Number(tx.amount ?? 0),
+          valueUsd: Number(tx.valueUsd ?? 0),
+          feeUsd: Number(tx.feeUsd ?? 0),
+          status: tx.status,
+          txHash: tx.txHash,
+          date: String(tx.date || 'Today'),
+          time: String(tx.time || 'Now'),
+        }))
+
+        setOrders(mappedOrders)
+        setTransactions(mappedTransactions)
+      } catch {
+        if (isMounted) {
+          setOrders([])
+          setTransactions([])
+        }
+      }
+    }
+
+    loadActivity()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const filteredOrders = orders.filter((ord) => {
     if (statusFilter === 'all') return true
     if (statusFilter === 'filled') return ord.status === 'filled'
     if (statusFilter === 'open') return ord.status === 'open' || ord.status === 'pending'
@@ -86,7 +138,7 @@ export const RecentActivity: React.FC = () => {
         <div className="flex items-center gap-3">
           <CardTitle className="text-lg">Trading & Account Activity</CardTitle>
           <Badge variant="neutral" size="sm">
-            Mock Records
+            Live Feed
           </Badge>
         </div>
 
@@ -321,7 +373,7 @@ export const RecentActivity: React.FC = () => {
 
           {/* Transactions List */}
           <div className="divide-y divide-cp-border/60">
-            {mockRecentTransactions.map((tx) => (
+            {transactions.map((tx) => (
               <div
                 key={tx.id}
                 className="p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-cp-elevated/30 transition-colors"
