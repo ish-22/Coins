@@ -1,26 +1,26 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   ShieldCheck,
   Search,
-  Filter,
   Eye,
   CheckCircle2,
-  XCircle,
-  FileText,
-  AlertTriangle,
   X,
-  Clock,
-  ExternalLink,
+  XCircle,
+  AlertTriangle,
+  FileText,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
+import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { AdminKycCase, INITIAL_ADMIN_KYC_CASES } from '@/mock/adminData'
+import { AdminKycCase } from '@/mock/adminData'
+import { adminService } from '@/services'
 
 export const AdminKYC: React.FC = () => {
-  const [cases, setCases] = useState<AdminKycCase[]>(INITIAL_ADMIN_KYC_CASES)
+  const [cases, setCases] = useState<AdminKycCase[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in_review' | 'approved' | 'rejected'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCase, setSelectedCase] = useState<AdminKycCase | null>(null)
@@ -31,6 +31,30 @@ export const AdminKYC: React.FC = () => {
   const [decisionReason, setDecisionReason] = useState('')
   const [decisionError, setDecisionError] = useState<string | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    const loadCases = async () => {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        const liveCases = await adminService.getKycCases()
+        if (isMounted) setCases(liveCases)
+      } catch (error: any) {
+        if (isMounted) {
+          setLoadError(error?.response?.data?.message || 'Unable to load KYC cases from the backend.')
+          setCases([])
+        }
+      } finally {
+        if (isMounted) setIsLoading(false)
+      }
+    }
+
+    loadCases()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const filteredCases = useMemo(() => {
     return cases.filter((c) => {
@@ -53,7 +77,7 @@ export const AdminKYC: React.FC = () => {
     setDecisionError(null)
   }
 
-  const handleConfirmDecision = () => {
+  const handleConfirmDecision = async () => {
     if (!decisionReason.trim()) {
       setDecisionError('A clear verification or rejection reason is required for administrative audit logs.')
       return
@@ -61,39 +85,43 @@ export const AdminKYC: React.FC = () => {
 
     if (!decisionCase || !decisionType) return
 
-    const newStatus = decisionType === 'approve' ? 'approved' : 'rejected'
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 16)
+    try {
+      const response = await adminService.reviewKycCase(decisionCase.id, decisionType, decisionReason.trim())
+      const newStatus = decisionType === 'approve' ? 'approved' : 'rejected'
+      const now = new Date().toISOString().replace('T', ' ').slice(0, 16)
 
-    setCases((prev) =>
-      prev.map((c) =>
-        c.id === decisionCase.id
-          ? {
-              ...c,
-              status: newStatus,
-              reviewedAt: now,
-              rejectionReason: decisionType === 'reject' ? decisionReason.trim() : undefined,
-            }
-          : c
+      setCases((prev) =>
+        prev.map((c) =>
+          c.id === decisionCase.id
+            ? {
+                ...c,
+                status: newStatus,
+                reviewedAt: now,
+                rejectionReason: decisionType === 'reject' ? decisionReason.trim() : undefined,
+              }
+            : c
+        )
       )
-    )
 
-    if (selectedCase?.id === decisionCase.id) {
-      setSelectedCase((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: newStatus,
-              reviewedAt: now,
-              rejectionReason: decisionType === 'reject' ? decisionReason.trim() : undefined,
-            }
-          : null
-      )
+      if (selectedCase?.id === decisionCase.id) {
+        setSelectedCase((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: newStatus,
+                reviewedAt: now,
+                rejectionReason: decisionType === 'reject' ? decisionReason.trim() : undefined,
+              }
+            : null
+        )
+      }
+
+      setToastMessage(response?.message || `Case ${decisionCase.caseRef} (${decisionCase.userName}) ${decisionType === 'approve' ? 'Approved' : 'Rejected'} successfully.`)
+      setTimeout(() => setToastMessage(null), 4000)
+    } catch (error: any) {
+      setDecisionError(error?.response?.data?.message || 'The KYC decision could not be submitted to the backend.')
+      return
     }
-
-    setToastMessage(
-      `Case ${decisionCase.caseRef} (${decisionCase.userName}) ${decisionType === 'approve' ? 'Approved' : 'Rejected'} successfully (Simulated).`
-    )
-    setTimeout(() => setToastMessage(null), 4000)
 
     setDecisionCase(null)
     setDecisionType(null)
@@ -119,6 +147,18 @@ export const AdminKYC: React.FC = () => {
           </Badge>
         </div>
       </div>
+
+      {loadError && (
+        <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative">
+          {loadError}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="p-4 rounded-xl border border-cp-border bg-cp-card text-xs text-cp-text-muted">
+          Loading verification queue from the live API...
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toastMessage && (

@@ -5,16 +5,23 @@ import { Sidebar } from './Sidebar'
 import { BottomNav } from './BottomNav'
 import { MobileDrawer } from './MobileDrawer'
 import { Footer } from './Footer'
-import { LayoutProvider } from '@/context/LayoutContext'
+import { LayoutProvider, useLayout } from '@/context/LayoutContext'
 
 export const MainLayoutContent: React.FC = () => {
+  const { isSidebarCollapsed } = useLayout()
+
   return (
-    <div className="min-h-screen flex w-full bg-cp-bg text-cp-text-primary selection:bg-cp-gold/30 selection:text-cp-gold overflow-x-hidden">
+    <div className="min-h-screen flex w-full bg-cp-bg text-cp-text-primary selection:bg-cp-gold/30 selection:text-cp-gold overflow-hidden">
       {/* 1. Desktop Fixed/Collapsible Left Sidebar */}
       <Sidebar />
 
       {/* 2. Main Content & Header Column */}
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen relative">
+      <div
+        className={[
+          'flex-1 flex flex-col min-w-0 min-h-screen relative overflow-y-auto',
+          isSidebarCollapsed ? 'lg:pl-20' : 'lg:pl-64 xl:pl-72',
+        ].join(' ')}
+      >
         {/* Top Header */}
         <Header />
 

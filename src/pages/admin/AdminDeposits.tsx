@@ -1,29 +1,53 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   ArrowDownToLine,
   Search,
-  Filter,
   Eye,
   CheckCircle2,
-  Clock,
-  ExternalLink,
   X,
   Copy,
   Check,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
+import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { AdminDepositRecord, INITIAL_ADMIN_DEPOSITS } from '@/mock/adminData'
+import { AdminDepositRecord } from '@/mock/adminData'
 import { formatUSD } from '@/utils/formatters'
+import { adminService } from '@/services'
 
 export const AdminDeposits: React.FC = () => {
-  const [deposits] = useState<AdminDepositRecord[]>(INITIAL_ADMIN_DEPOSITS)
+  const [deposits, setDeposits] = useState<AdminDepositRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'confirming' | 'pending'>('all')
   const [assetFilter, setAssetFilter] = useState<'all' | 'BTC' | 'ETH' | 'SOL' | 'USDT'>('all')
   const [selectedDeposit, setSelectedDeposit] = useState<AdminDepositRecord | null>(null)
   const [copiedHash, setCopiedHash] = useState(false)
+
+  useEffect(() => {
+    let isMounted = true
+    const loadDeposits = async () => {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        const liveDeposits = await adminService.getDeposits()
+        if (isMounted) setDeposits(liveDeposits)
+      } catch (error: any) {
+        if (isMounted) {
+          setLoadError(error?.response?.data?.message || 'Unable to load deposit ledger from the API.')
+          setDeposits([])
+        }
+      } finally {
+        if (isMounted) setIsLoading(false)
+      }
+    }
+
+    loadDeposits()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const filteredDeposits = useMemo(() => {
     return deposits.filter((d) => {
@@ -67,6 +91,18 @@ export const AdminDeposits: React.FC = () => {
           </Badge>
         </div>
       </div>
+
+      {loadError && (
+        <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative">
+          {loadError}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="p-4 rounded-xl border border-cp-border bg-cp-card text-xs text-cp-text-muted">
+          Loading live deposit ledger from the backend...
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <Card className="bg-[#0c121c] border-cp-border">

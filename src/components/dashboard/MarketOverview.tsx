@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   TrendingUp,
@@ -14,16 +14,62 @@ import { cn } from '@/utils/cn'
 import { Card, CardHeader, CardTitle } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import {
-  mockDashboardMarkets,
-  DashboardMarketAsset,
-} from '@/mock/dashboardData'
+import { DashboardMarketAsset } from '@/mock/dashboardData'
 import { formatCurrency } from '@/utils/formatters'
+import { marketService } from '@/services'
 
 export const MarketOverview: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'core' | 'gainers' | 'losers' | 'favorites'>('core')
   const [searchQuery, setSearchQuery] = useState('')
-  const [favorites, setFavorites] = useState<string[]>(['bitcoin', 'ethereum', 'solana', 'ripple'])
+  const [assets, setAssets] = useState<DashboardMarketAsset[]>([])
+  const [favorites, setFavorites] = useState<string[]>(['BTC-USDT', 'ETH-USDT', 'SOL-USDT', 'XRP-USDT'])
+
+  const normalizeTicker = (pair: any): DashboardMarketAsset => {
+    const symbol = String(pair.symbol || pair.baseAsset || 'BTC')
+    const [baseSymbol = 'BTC', quoteSymbol = 'USDT'] = symbol.split('/')
+    const price = Number(pair.price ?? 0)
+    const change24h = Number(pair.change24h ?? 0)
+    const basePrice = Math.max(price, 0.0001)
+
+    return {
+      id: String(pair.id || `${baseSymbol}-${quoteSymbol}`),
+      symbol: baseSymbol,
+      pair: `${baseSymbol}/${quoteSymbol}`,
+      name: baseSymbol,
+      priceUsd: price,
+      change24h,
+      high24h: Number(pair.high24h ?? price * 1.02),
+      low24h: Number(pair.low24h ?? price * 0.98),
+      volume24hUsd: Number(pair.volume24hUsdt ?? 0),
+      sparkline: Array.from({ length: 6 }, (_, index) => {
+        const variance = ((index - 2.5) * (Math.abs(change24h) || 0.5)) / 10
+        return Number((basePrice * (1 + variance / 100)).toFixed(4))
+      }),
+      category: 'core',
+      isFavorite: favorites.includes(String(pair.id || `${baseSymbol}-${quoteSymbol}`)),
+    }
+  }
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadTickers = async () => {
+      try {
+        const pairs = await marketService.getTickers()
+        if (isMounted) {
+          setAssets((pairs ?? []).map(normalizeTicker))
+        }
+      } catch {
+        if (isMounted) setAssets([])
+      }
+    }
+
+    loadTickers()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const toggleFavorite = (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -33,26 +79,18 @@ export const MarketOverview: React.FC = () => {
     )
   }
 
-  // Filter based on active tab
   const getTabAssets = (): DashboardMarketAsset[] => {
     switch (activeTab) {
       case 'core':
-        // Specifically BTC, ETH, SOL, BNB, and XRP
-        return mockDashboardMarkets.filter((m) =>
-          ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'].includes(m.symbol)
-        )
+        return assets.filter((m) => ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'].includes(m.symbol))
       case 'gainers':
-        return [...mockDashboardMarkets]
-          .sort((a, b) => b.change24h - a.change24h)
-          .slice(0, 5)
+        return [...assets].sort((a, b) => b.change24h - a.change24h).slice(0, 5)
       case 'losers':
-        return [...mockDashboardMarkets]
-          .sort((a, b) => a.change24h - b.change24h)
-          .slice(0, 5)
+        return [...assets].sort((a, b) => a.change24h - b.change24h).slice(0, 5)
       case 'favorites':
-        return mockDashboardMarkets.filter((m) => favorites.includes(m.id))
+        return assets.filter((m) => favorites.includes(m.id))
       default:
-        return mockDashboardMarkets
+        return assets
     }
   }
 

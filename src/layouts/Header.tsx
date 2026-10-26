@@ -32,7 +32,14 @@ export const Header: React.FC = () => {
   const { user, logout } = useAuth()
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
-  const [themeMode, setThemeMode] = useState<'dark' | 'gold'>('dark')
+  const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
+    try {
+      const saved = localStorage.getItem('cp-theme-mode')
+      return saved === 'light' ? 'light' : 'dark'
+    } catch {
+      return 'dark'
+    }
+  })
   const [searchQuery, setSearchQuery] = useState('')
 
   const profileRef = useRef<HTMLDivElement>(null)
@@ -60,6 +67,19 @@ export const Header: React.FC = () => {
       setTimeout(() => searchInputRef.current?.focus(), 50)
     }
   }, [isSearchOpen])
+
+  // Apply the selected theme globally and persist it
+  useEffect(() => {
+    const root = document.documentElement
+    root.setAttribute('data-theme', themeMode)
+    root.style.colorScheme = themeMode
+
+    try {
+      localStorage.setItem('cp-theme-mode', themeMode)
+    } catch {
+      // ignore storage errors
+    }
+  }, [themeMode])
 
   const notifications = [
     {
@@ -191,10 +211,11 @@ export const Header: React.FC = () => {
               {/* Theme Control */}
               <button
                 type="button"
-                onClick={() => setThemeMode(themeMode === 'dark' ? 'gold' : 'dark')}
+                onClick={() => setThemeMode((prev) => (prev === 'dark' ? 'light' : 'dark'))}
                 className="p-2 rounded-lg text-cp-text-secondary hover:text-cp-gold hover:bg-cp-elevated transition-colors relative group"
-                title={themeMode === 'dark' ? 'Black & Gold Dark Mode' : 'Gold High Contrast'}
+                title={themeMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
                 aria-label="Toggle theme mode"
+                aria-pressed={themeMode === 'light'}
               >
                 {themeMode === 'dark' ? (
                   <Moon className="w-5 h-5 text-cp-text-secondary group-hover:text-cp-gold transition-colors" />

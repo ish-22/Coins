@@ -110,7 +110,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ onItemClick }) => {
   const location = useLocation()
 
   return (
-    <aside className="w-64 bg-[#0c121c] border-r border-cp-border flex flex-col shrink-0 select-none">
+    <aside className="hidden lg:flex fixed left-0 top-0 bottom-0 w-64 bg-[#0c121c] border-r border-cp-border flex-col shrink-0 select-none h-screen overflow-hidden z-40">
       {/* Brand & Admin Badge */}
       <div className="h-16 px-5 border-b border-cp-border flex items-center justify-between">
         <Link to="/admin/dashboard" className="flex items-center gap-2">

@@ -49,8 +49,11 @@ import {
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
-      {/* ── Public landing page (standalone, no sidebar/app shell) ── */}
+      {/* ── Public landing and auth pages (standalone, no app shell) ── */}
       <Route path="/" element={<Landing />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
 
       {/* ── Standalone Admin Login (no admin layout) ── */}
       <Route path="/admin/login" element={<AdminLogin />} />
@@ -104,9 +107,6 @@ export const AppRoutes: React.FC = () => {
         <Route path="privacy" element={<Privacy />} />
         <Route path="risk-disclosure" element={<RiskDisclosure />} />
         <Route path="compliance" element={<Compliance />} />
-        <Route path="login" element={<Login />} />
-        <Route path="register" element={<Register />} />
-        <Route path="forgot-password" element={<ForgotPassword />} />
 
         {/* Design System Foundation Showcase */}
         <Route path="design-system" element={<DesignSystemPreview />} />

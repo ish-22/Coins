@@ -1,32 +1,30 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Users,
   Search,
-  Filter,
   Eye,
   ShieldAlert,
   ShieldCheck,
   CheckCircle2,
-  XCircle,
   X,
   AlertTriangle,
-  RotateCcw,
   ChevronLeft,
   ChevronRight,
-  ExternalLink,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
+import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { Input } from '@/components/common/Input'
-import { AdminUser, INITIAL_ADMIN_USERS } from '@/mock/adminData'
+import { AdminUser } from '@/mock/adminData'
 import { formatUSD } from '@/utils/formatters'
+import { adminService } from '@/services'
 
 export const AdminUsers: React.FC = () => {
-  const [users, setUsers] = useState<AdminUser[]>(INITIAL_ADMIN_USERS)
+  const [users, setUsers] = useState<AdminUser[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended' | 'pending'>('all')
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   // Restriction dialog state
   const [actionUser, setActionUser] = useState<AdminUser | null>(null)
@@ -38,6 +36,37 @@ export const AdminUsers: React.FC = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 6
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchUsers = async () => {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        const liveUsers = await adminService.getUsers()
+        if (isMounted) {
+          setUsers(liveUsers)
+          setCurrentPage(1)
+        }
+      } catch (error: any) {
+        if (isMounted) {
+          setLoadError(error?.response?.data?.message || 'Unable to load live customer records from the API.')
+          setUsers([])
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    fetchUsers()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   // Filtered users
   const filteredUsers = useMemo(() => {
@@ -66,7 +95,7 @@ export const AdminUsers: React.FC = () => {
     setActionError(null)
   }
 
-  const handleConfirmAction = () => {
+  const handleConfirmAction = async () => {
     if (!actionReason.trim()) {
       setActionError('A valid operational reason is required for compliance logging.')
       return
@@ -76,18 +105,26 @@ export const AdminUsers: React.FC = () => {
 
     const newStatus = actionType === 'suspend' ? 'suspended' : 'active'
 
-    setUsers((prev) =>
-      prev.map((u) => (u.id === actionUser.id ? { ...u, status: newStatus } : u))
-    )
+    try {
+      const response = await adminService.updateUserStatus(actionUser.id, newStatus)
 
-    if (selectedUser?.id === actionUser.id) {
-      setSelectedUser((prev) => (prev ? { ...prev, status: newStatus } : null))
+      setUsers((prev) =>
+        prev.map((u) => (u.id === actionUser.id ? { ...u, status: newStatus } : u))
+      )
+
+      if (selectedUser?.id === actionUser.id) {
+        setSelectedUser((prev) => (prev ? { ...prev, status: newStatus } : null))
+      }
+
+      setSuccessToast(
+        response?.message ||
+          `User ${actionUser.userRef} (${actionUser.name}) ${actionType === 'suspend' ? 'suspended' : 'reactivated'} successfully.`
+      )
+      setTimeout(() => setSuccessToast(null), 4000)
+    } catch (error: any) {
+      setActionError(error?.response?.data?.message || 'The account status could not be updated from the API.')
+      return
     }
-
-    setSuccessToast(
-      `User ${actionUser.userRef} (${actionUser.name}) ${actionType === 'suspend' ? 'suspended' : 'reactivated'} successfully (simulated).`
-    )
-    setTimeout(() => setSuccessToast(null), 4000)
 
     setActionUser(null)
     setActionType(null)
@@ -109,10 +146,22 @@ export const AdminUsers: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <Badge variant="gold" size="sm">
-            Total Mock Accounts: {users.length}
+            Total Live Accounts: {users.length}
           </Badge>
         </div>
       </div>
+
+      {loadError && (
+        <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative">
+          {loadError}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="p-4 rounded-xl border border-cp-border bg-cp-card text-xs text-cp-text-muted">
+          Loading customer records from the live admin API...
+        </div>
+      )}
 
       {/* Success Toast */}
       {successToast && (

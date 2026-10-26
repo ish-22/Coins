@@ -33,7 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   return (
     <aside
       className={cn(
-        'hidden lg:flex flex-col h-screen sticky top-0 z-40 bg-cp-card border-r border-cp-border select-none transition-all duration-300 ease-in-out',
+        'hidden lg:flex fixed left-0 top-0 bottom-0 flex-col h-screen z-40 bg-cp-card border-r border-cp-border select-none transition-all duration-300 ease-in-out overflow-hidden',
         isSidebarCollapsed ? 'w-20' : 'w-64 xl:w-72',
         className
       )}

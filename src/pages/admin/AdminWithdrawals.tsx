@@ -1,25 +1,25 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   ArrowUpFromLine,
   Search,
-  Filter,
   Eye,
   CheckCircle2,
+  X,
   XCircle,
   AlertTriangle,
-  Clock,
   ShieldAlert,
-  X,
-  ExternalLink,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
+import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { AdminWithdrawalRecord, INITIAL_ADMIN_WITHDRAWALS } from '@/mock/adminData'
+import { AdminWithdrawalRecord } from '@/mock/adminData'
 import { formatUSD } from '@/utils/formatters'
+import { adminService } from '@/services'
 
 export const AdminWithdrawals: React.FC = () => {
-  const [withdrawals, setWithdrawals] = useState<AdminWithdrawalRecord[]>(INITIAL_ADMIN_WITHDRAWALS)
+  const [withdrawals, setWithdrawals] = useState<AdminWithdrawalRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending_review' | 'approved' | 'rejected'>('all')
   const [selectedWithdrawal, setSelectedWithdrawal] = useState<AdminWithdrawalRecord | null>(null)
@@ -30,6 +30,30 @@ export const AdminWithdrawals: React.FC = () => {
   const [actionReason, setActionReason] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    const loadWithdrawals = async () => {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        const liveWithdrawals = await adminService.getWithdrawals()
+        if (isMounted) setWithdrawals(liveWithdrawals)
+      } catch (error: any) {
+        if (isMounted) {
+          setLoadError(error?.response?.data?.message || 'Unable to load withdrawal review queue from the API.')
+          setWithdrawals([])
+        }
+      } finally {
+        if (isMounted) setIsLoading(false)
+      }
+    }
+
+    loadWithdrawals()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const filteredWithdrawals = useMemo(() => {
     return withdrawals.filter((w) => {
@@ -122,6 +146,18 @@ export const AdminWithdrawals: React.FC = () => {
           </Badge>
         </div>
       </div>
+
+      {loadError && (
+        <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative">
+          {loadError}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="p-4 rounded-xl border border-cp-border bg-cp-card text-xs text-cp-text-muted">
+          Loading withdrawal queue from the live API...
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toastMessage && (

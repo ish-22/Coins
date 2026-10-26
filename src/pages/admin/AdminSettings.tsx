@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Sliders,
   Save,
@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Ca
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
 import { Input } from '@/components/common/Input'
+import { adminService } from '@/services'
 
 export const AdminSettings: React.FC = () => {
   // Fee & Limit States
@@ -38,15 +39,61 @@ export const AdminSettings: React.FC = () => {
   // Toast confirmation
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        const settings = await adminService.getSettings()
+
+        if (settings?.platform_name) {
+          setMaintenanceMessage(settings.maintenance_message || maintenanceMessage)
+        }
+
+        if (settings?.maker_fee !== undefined) setMakerFee(String(settings.maker_fee ?? '0.10'))
+        if (settings?.taker_fee !== undefined) setTakerFee(String(settings.taker_fee ?? '0.10'))
+        if (settings?.max_daily_withdrawal_tier2 !== undefined) setDailyWithdrawalLimitBtc(String(settings.max_daily_withdrawal_tier2 / 1 || '100.0'))
+        if (settings?.min_deposit_value_usd !== undefined) setMinDepositUsd(String(settings.min_deposit_value_usd ?? '10.00'))
+        if (settings?.maintenance_mode !== undefined) setMaintenanceModeActive(Boolean(settings.maintenance_mode))
+        if (settings?.alert_large_withdrawals !== undefined) setAlertLargeWithdrawals(Boolean(settings.alert_large_withdrawals))
+        if (settings?.high_risk_threshold_usd !== undefined) setHighRiskThresholdUsd(String(settings.high_risk_threshold_usd ?? '25000'))
+      } catch (error: any) {
+        setLoadError(error?.response?.data?.message || 'Unable to load platform settings from the backend.')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadSettings()
+  }, [])
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
-    setTimeout(() => {
+    try {
+      const payload = {
+        maker_fee: Number(makerFee),
+        taker_fee: Number(takerFee),
+        max_daily_withdrawal_tier2: Number(dailyWithdrawalLimitBtc),
+        min_deposit_value_usd: Number(minDepositUsd),
+        maintenance_mode: maintenanceModeActive,
+        maintenance_message: maintenanceMessage,
+        alert_large_withdrawals: alertLargeWithdrawals,
+        high_risk_threshold_usd: Number(highRiskThresholdUsd),
+        telegram_webhook: telegramWebhookPlaceholder,
+      }
+
+      await adminService.updateSettings(payload)
+      setToastMessage('Platform administration parameters and fee schedules updated from the live database.')
+    } catch (error: any) {
+      setToastMessage(error?.response?.data?.message || 'Platform settings could not be saved to the backend.')
+    } finally {
       setIsSaving(false)
-      setToastMessage('Platform administration parameters and fee schedules updated (Simulated).')
       setTimeout(() => setToastMessage(null), 4000)
-    }, 600)
+    }
   }
 
   return (
@@ -67,6 +114,18 @@ export const AdminSettings: React.FC = () => {
           {isSaving ? 'Saving...' : 'Save All Settings'}
         </Button>
       </div>
+
+      {loadError && (
+        <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative">
+          {loadError}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="p-4 rounded-xl border border-cp-border bg-cp-card text-xs text-cp-text-muted">
+          Loading platform settings from the live API...
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toastMessage && (

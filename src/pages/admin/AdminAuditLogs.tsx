@@ -1,24 +1,21 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   FileText,
   Search,
-  Filter,
   Download,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  Calendar,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
+import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { AdminAuditLog, INITIAL_ADMIN_AUDIT_LOGS } from '@/mock/adminData'
+import { AdminAuditLog } from '@/mock/adminData'
+import { adminService } from '@/services'
 
 export const AdminAuditLogs: React.FC = () => {
-  const [logs] = useState<AdminAuditLog[]>(INITIAL_ADMIN_AUDIT_LOGS)
+  const [logs, setLogs] = useState<AdminAuditLog[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [resultFilter, setResultFilter] = useState<string>('all')
@@ -40,6 +37,30 @@ export const AdminAuditLogs: React.FC = () => {
       return matchSearch && matchCategory && matchResult
     })
   }, [logs, searchQuery, categoryFilter, resultFilter])
+
+  useEffect(() => {
+    let isMounted = true
+    const loadAuditLogs = async () => {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        const liveLogs = await adminService.getAuditLogs()
+        if (isMounted) setLogs(liveLogs)
+      } catch (error: any) {
+        if (isMounted) {
+          setLoadError(error?.response?.data?.message || 'Unable to load audit trails from the backend.')
+          setLogs([])
+        }
+      } finally {
+        if (isMounted) setIsLoading(false)
+      }
+    }
+
+    loadAuditLogs()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const totalPages = Math.ceil(filteredLogs.length / itemsPerPage) || 1
   const paginatedLogs = filteredLogs.slice(
@@ -92,6 +113,18 @@ export const AdminAuditLogs: React.FC = () => {
           Export Audit CSV
         </Button>
       </div>
+
+      {loadError && (
+        <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative">
+          {loadError}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="p-4 rounded-xl border border-cp-border bg-cp-card text-xs text-cp-text-muted">
+          Loading audit trail from the database...
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <Card className="bg-[#0c121c] border-cp-border">

@@ -1,26 +1,134 @@
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   TrendingUp,
   BarChart3,
   Wallet,
   ArrowRight,
-  Sparkles,
-  ShieldCheck,
-  CheckCircle2,
 } from 'lucide-react'
 import { Card } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
 import { MarketSparkline } from '@/components/markets/MarketSparkline'
-import { formatUSD, formatCurrency, formatPercentage } from '@/utils/formatters'
+import { marketService } from '@/services'
+import { formatCurrency, formatPercentage } from '@/utils/formatters'
+import type { TradingPairConfig } from '@/mock/tradingData'
+
+const buildPreviewSeries = (basePrice: number, movement: number, count = 12) => {
+  const volatility = Math.max(Math.abs(movement) / 100, 0.008)
+  let current = basePrice * (1 - volatility * 0.9)
+
+  return Array.from({ length: count }, (_, index) => {
+    const wave = Math.sin(index * 0.8)
+    const step = basePrice * volatility * (0.22 + (index / count) * 0.6)
+    current = current + wave * (basePrice * volatility * 0.45) + step
+    return Number(current.toFixed(2))
+  })
+}
+
+const buildDepthRows = (basePrice: number, spread: number) => {
+  const askBase = basePrice * (1 + spread)
+  const bidBase = basePrice * (1 - spread)
+
+  return {
+    asks: [
+      { price: askBase, amount: basePrice / 15000 },
+      { price: askBase * 0.998, amount: basePrice / 12000 },
+      { price: askBase * 0.996, amount: basePrice / 18000 },
+    ],
+    bids: [
+      { price: bidBase, amount: basePrice / 13000 },
+      { price: bidBase * 0.998, amount: basePrice / 16000 },
+      { price: bidBase * 0.996, amount: basePrice / 21000 },
+    ],
+  }
+}
 
 export const ProductPreviewTabs: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'markets' | 'trade' | 'portfolio'>('trade')
+  const [tickers, setTickers] = useState<TradingPairConfig[]>([])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadPreviewData = async () => {
+      try {
+        const data = await marketService.getTickers()
+        if (!isMounted) return
+        setTickers(data)
+      } catch {
+        if (isMounted) setTickers([])
+      }
+    }
+
+    loadPreviewData()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const previewTickers = useMemo(
+    () => [...tickers].sort((a, b) => b.volume24hUsdt - a.volume24hUsdt).slice(0, 4),
+    [tickers]
+  )
+
+  const primaryPair = previewTickers[0] ?? {
+    symbol: 'BTC/USDT',
+    baseAsset: 'BTC',
+    quoteAsset: 'USDT',
+    price: 68000,
+    change24h: 2.4,
+    high24h: 69000,
+    low24h: 67000,
+    volume24hUsdt: 1_940_000_000,
+  }
+
+  const primarySeries = useMemo(
+    () => buildPreviewSeries(primaryPair.price, primaryPair.change24h),
+    [primaryPair]
+  )
+
+  const marketRows = useMemo(
+    () =>
+      previewTickers.map((pair) => ({
+        ...pair,
+        sparkline: buildPreviewSeries(pair.price, pair.change24h, 8),
+      })),
+    [previewTickers]
+  )
+
+  const depth = useMemo(
+    () => buildDepthRows(primaryPair.price, 0.0008),
+    [primaryPair.price]
+  )
+
+  const portfolioAssets = useMemo(() => {
+    const assetWeights = previewTickers.length
+      ? previewTickers.map((pair, index) => ({
+          asset: pair.baseAsset,
+          value: pair.price * (index === 0 ? 2.8 : index === 1 ? 1.6 : index === 2 ? 1.1 : 0.7),
+        }))
+      : [
+          { asset: 'BTC', value: 32000 },
+          { asset: 'ETH', value: 18000 },
+          { asset: 'SOL', value: 12000 },
+        ]
+
+    const total = assetWeights.reduce((sum, item) => sum + item.value, 0) || 1
+
+    return assetWeights.map((item) => ({
+      ...item,
+      percent: (item.value / total) * 100,
+    }))
+  }, [previewTickers])
+
+  const portfolioTotal = portfolioAssets.reduce((sum, item) => sum + item.value, 0)
+  const availableFunds = portfolioTotal * 0.72
+  const activeOrders = portfolioTotal * 0.28
 
   return (
     <div className="space-y-4">
-      {/* Tab Switcher Pills */}
       <div className="flex items-center justify-center gap-2 overflow-x-auto pb-2">
         <button
           type="button"
@@ -62,32 +170,36 @@ export const ProductPreviewTabs: React.FC = () => {
         </button>
       </div>
 
-      {/* Preview Card Shell */}
       <div className="rounded-2xl border border-cp-border bg-cp-card shadow-2xl overflow-hidden p-4 sm:p-6 transition-all duration-300">
-        
-        {/* VIEW 1: PRO TRADING TERMINAL PREVIEW */}
         {activeTab === 'trade' && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Header Strip */}
             <div className="p-3.5 rounded-xl bg-cp-elevated border border-cp-border flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-3">
-                <span className="font-extrabold text-sm text-cp-text-primary font-mono">BTC/USDT</span>
+                <span className="font-extrabold text-sm text-cp-text-primary font-mono">
+                  {primaryPair.symbol}
+                </span>
                 <Badge variant="gold" size="sm">Spot Pro</Badge>
-                <span className="text-base font-bold font-mono text-cp-positive">$68,450.25</span>
-                <span className="text-cp-positive font-mono font-semibold text-[11px]">+3.42%</span>
+                <span className="text-base font-bold font-mono text-cp-positive">
+                  {formatCurrency(primaryPair.price)}
+                </span>
+                <span
+                  className={`font-mono font-semibold text-[11px] ${
+                    primaryPair.change24h >= 0 ? 'text-cp-positive' : 'text-cp-negative'
+                  }`}
+                >
+                  {formatPercentage(primaryPair.change24h)}
+                </span>
               </div>
               <div className="flex items-center gap-3 font-mono text-[11px] text-cp-text-secondary">
-                <span>24h High: $69,120.00</span>
+                <span>24h High: {formatCurrency(primaryPair.high24h)}</span>
                 <span>•</span>
-                <span>24h Low: $66,890.50</span>
+                <span>24h Low: {formatCurrency(primaryPair.low24h)}</span>
                 <span>•</span>
-                <span>Vol: $1.94B</span>
+                <span>Vol: {formatCurrency(primaryPair.volume24hUsdt, 'USD', true)}</span>
               </div>
             </div>
 
-            {/* Trading Grid Preview */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Mini Chart Mock */}
               <div className="md:col-span-2 p-4 rounded-xl bg-cp-elevated border border-cp-border space-y-3">
                 <div className="flex items-center justify-between text-xs text-cp-text-secondary">
                   <span className="font-semibold text-cp-text-primary">Interactive Candlestick Engine</span>
@@ -99,87 +211,62 @@ export const ProductPreviewTabs: React.FC = () => {
                   </div>
                 </div>
 
-                {/* SVG Visual Candlestick Representation */}
                 <div className="h-44 w-full bg-cp-card/80 rounded-lg border border-cp-border/50 p-2 flex items-end justify-between gap-1 overflow-hidden">
-                  {[
-                    { open: 66, close: 72, high: 75, low: 64, isGreen: true },
-                    { open: 72, close: 70, high: 74, low: 68, isGreen: false },
-                    { open: 70, close: 78, high: 80, low: 69, isGreen: true },
-                    { open: 78, close: 76, high: 82, low: 74, isGreen: false },
-                    { open: 76, close: 84, high: 86, low: 75, isGreen: true },
-                    { open: 84, close: 88, high: 90, low: 82, isGreen: true },
-                    { open: 88, close: 85, high: 89, low: 83, isGreen: false },
-                    { open: 85, close: 92, high: 94, low: 84, isGreen: true },
-                    { open: 92, close: 96, high: 98, low: 90, isGreen: true },
-                    { open: 96, close: 94, high: 97, low: 91, isGreen: false },
-                    { open: 94, close: 99, high: 100, low: 92, isGreen: true },
-                  ].map((c, i) => (
-                    <div key={i} className="flex-1 flex flex-col items-center justify-end h-full">
-                      {/* High-Low Wick */}
-                      <div
-                        className={`w-[1.5px] ${c.isGreen ? 'bg-cp-positive' : 'bg-cp-negative'}`}
-                        style={{ height: `${c.high - c.low + 10}px` }}
-                      />
-                      {/* Body */}
-                      <div
-                        className={`w-full max-w-[14px] rounded-sm ${
-                          c.isGreen ? 'bg-cp-positive' : 'bg-cp-negative'
-                        }`}
-                        style={{ height: `${Math.max(8, Math.abs(c.close - c.open) * 2)}px` }}
-                      />
-                    </div>
-                  ))}
+                  {primarySeries.map((value, index) => {
+                    const isGreen = index % 2 === 0
+                    const previousValue = primarySeries[index - 1] ?? value
+                    const bodyHeight = Math.max(8, Math.abs(value - previousValue) * 2.2)
+
+                    return (
+                      <div key={`${value}-${index}`} className="flex-1 flex flex-col items-center justify-end h-full">
+                        <div
+                          className={`w-[1.5px] ${isGreen ? 'bg-cp-positive' : 'bg-cp-negative'}`}
+                          style={{ height: `${Math.max(18, Math.abs(value * 0.0009) * 120)}px` }}
+                        />
+                        <div
+                          className={`w-full max-w-[14px] rounded-sm ${
+                            isGreen ? 'bg-cp-positive' : 'bg-cp-negative'
+                          }`}
+                          style={{ height: `${bodyHeight}px` }}
+                        />
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
 
-              {/* Mini Order Book Depth Preview */}
               <div className="p-4 rounded-xl bg-cp-elevated border border-cp-border space-y-2 text-xs">
                 <span className="font-semibold text-cp-text-primary block text-[11px] uppercase">
                   Order Book Depth
                 </span>
 
-                {/* Asks (Red) */}
                 <div className="space-y-1 font-mono text-[11px]">
-                  <div className="flex justify-between text-cp-negative">
-                    <span>68,520.00</span>
-                    <span className="text-cp-text-secondary">0.450 BTC</span>
-                  </div>
-                  <div className="flex justify-between text-cp-negative">
-                    <span>68,490.50</span>
-                    <span className="text-cp-text-secondary">1.210 BTC</span>
-                  </div>
-                  <div className="flex justify-between text-cp-negative">
-                    <span>68,465.00</span>
-                    <span className="text-cp-text-secondary">0.820 BTC</span>
-                  </div>
+                  {depth.asks.map((row, idx) => (
+                    <div key={`ask-${idx}`} className="flex justify-between text-cp-negative">
+                      <span>{formatCurrency(row.price)}</span>
+                      <span className="text-cp-text-secondary">{row.amount.toFixed(4)} {primaryPair.baseAsset}</span>
+                    </div>
+                  ))}
                 </div>
 
-                {/* Mid price */}
                 <div className="py-1 px-2 rounded bg-cp-card border border-cp-border text-center font-bold font-mono text-xs text-cp-positive">
-                  $68,450.25 (Spread: $5.00)
+                  {formatCurrency(primaryPair.price)} (Spread {formatCurrency((depth.asks[0].price - depth.bids[0].price))})
                 </div>
 
-                {/* Bids (Green) */}
                 <div className="space-y-1 font-mono text-[11px]">
-                  <div className="flex justify-between text-cp-positive">
-                    <span>68,445.00</span>
-                    <span className="text-cp-text-secondary">0.950 BTC</span>
-                  </div>
-                  <div className="flex justify-between text-cp-positive">
-                    <span>68,420.00</span>
-                    <span className="text-cp-text-secondary">2.140 BTC</span>
-                  </div>
-                  <div className="flex justify-between text-cp-positive">
-                    <span>68,390.00</span>
-                    <span className="text-cp-text-secondary">1.800 BTC</span>
-                  </div>
+                  {depth.bids.map((row, idx) => (
+                    <div key={`bid-${idx}`} className="flex justify-between text-cp-positive">
+                      <span>{formatCurrency(row.price)}</span>
+                      <span className="text-cp-text-secondary">{row.amount.toFixed(4)} {primaryPair.baseAsset}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
 
             <div className="flex items-center justify-between pt-1">
               <span className="text-[11px] text-cp-text-secondary">
-                Full-featured terminal with limit, market, and stop-limit execution.
+                Live market conditions are pulled from the backend feed for the active trading pair.
               </span>
               <Link to="/trade">
                 <Button variant="primary" size="sm" className="h-8 text-xs">
@@ -190,7 +277,6 @@ export const ProductPreviewTabs: React.FC = () => {
           </div>
         )}
 
-        {/* VIEW 2: LIVE MARKET DEPTH PREVIEW */}
         {activeTab === 'markets' && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="overflow-x-auto">
@@ -205,39 +291,32 @@ export const ProductPreviewTabs: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-cp-border/50 font-mono text-xs">
-                  <tr className="hover:bg-cp-elevated/40">
-                    <td className="py-3 px-3 font-bold font-sans text-cp-text-primary">
-                      Bitcoin (BTC)
-                    </td>
-                    <td className="py-3 px-3 font-bold text-cp-text-primary">$68,450.25</td>
-                    <td className="py-3 px-3 text-cp-positive font-bold">+3.42%</td>
-                    <td className="py-3 px-3 text-cp-text-secondary">$28.45B</td>
-                    <td className="py-3 px-3">
-                      <MarketSparkline data={[66890, 67200, 67100, 67900, 68150, 68450]} isPositive={true} width={70} height={20} />
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-cp-elevated/40">
-                    <td className="py-3 px-3 font-bold font-sans text-cp-text-primary">
-                      Ethereum (ETH)
-                    </td>
-                    <td className="py-3 px-3 font-bold text-cp-text-primary">$3,624.80</td>
-                    <td className="py-3 px-3 text-cp-negative font-bold">-1.18%</td>
-                    <td className="py-3 px-3 text-cp-text-secondary">$14.23B</td>
-                    <td className="py-3 px-3">
-                      <MarketSparkline data={[3710, 3680, 3690, 3640, 3610, 3624]} isPositive={false} width={70} height={20} />
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-cp-elevated/40">
-                    <td className="py-3 px-3 font-bold font-sans text-cp-text-primary">
-                      Solana (SOL)
-                    </td>
-                    <td className="py-3 px-3 font-bold text-cp-text-primary">$184.65</td>
-                    <td className="py-3 px-3 text-cp-positive font-bold">+8.75%</td>
-                    <td className="py-3 px-3 text-cp-text-secondary">$6.82B</td>
-                    <td className="py-3 px-3">
-                      <MarketSparkline data={[168, 172, 175, 179, 181, 184]} isPositive={true} width={70} height={20} />
-                    </td>
-                  </tr>
+                  {marketRows.map((pair) => (
+                    <tr key={pair.id || pair.symbol} className="hover:bg-cp-elevated/40">
+                      <td className="py-3 px-3 font-bold font-sans text-cp-text-primary">
+                        {pair.baseAsset} ({pair.baseAsset})
+                      </td>
+                      <td className="py-3 px-3 font-bold text-cp-text-primary">{formatCurrency(pair.price)}</td>
+                      <td
+                        className={`py-3 px-3 font-bold ${
+                          pair.change24h >= 0 ? 'text-cp-positive' : 'text-cp-negative'
+                        }`}
+                      >
+                        {formatPercentage(pair.change24h)}
+                      </td>
+                      <td className="py-3 px-3 text-cp-text-secondary">
+                        {formatCurrency(pair.volume24hUsdt, 'USD', true)}
+                      </td>
+                      <td className="py-3 px-3">
+                        <MarketSparkline
+                          data={pair.sparkline}
+                          isPositive={pair.change24h >= 0}
+                          width={70}
+                          height={20}
+                        />
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -255,48 +334,73 @@ export const ProductPreviewTabs: React.FC = () => {
           </div>
         )}
 
-        {/* VIEW 3: PORTFOLIO & CUSTODY PREVIEW */}
         {activeTab === 'portfolio' && (
           <div className="space-y-4 animate-in fade-in duration-200">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="p-3.5 rounded-xl bg-cp-elevated border border-cp-border">
                 <span className="text-[11px] text-cp-text-secondary block">Total Balance</span>
-                <span className="text-lg font-bold font-mono text-cp-gold">$48,920.45</span>
+                <span className="text-lg font-bold font-mono text-cp-gold">
+                  {formatCurrency(portfolioTotal)}
+                </span>
               </div>
               <div className="p-3.5 rounded-xl bg-cp-elevated border border-cp-border">
                 <span className="text-[11px] text-cp-text-secondary block">Available Funds</span>
-                <span className="text-lg font-bold font-mono text-cp-positive">$36,450.25</span>
+                <span className="text-lg font-bold font-mono text-cp-positive">
+                  {formatCurrency(availableFunds)}
+                </span>
               </div>
               <div className="p-3.5 rounded-xl bg-cp-elevated border border-cp-border">
                 <span className="text-[11px] text-cp-text-secondary block">In Active Orders</span>
-                <span className="text-lg font-bold font-mono text-cp-text-primary">$12,470.20</span>
+                <span className="text-lg font-bold font-mono text-cp-text-primary">
+                  {formatCurrency(activeOrders)}
+                </span>
               </div>
             </div>
 
-            {/* Asset Allocation Bar */}
             <div className="p-3.5 rounded-xl bg-cp-elevated border border-cp-border space-y-2">
               <div className="flex justify-between text-xs">
                 <span className="font-semibold text-cp-text-primary">Asset Allocation</span>
-                <span className="text-cp-text-secondary font-mono">8 Assets</span>
+                <span className="text-cp-text-secondary font-mono">{portfolioAssets.length} Assets</span>
               </div>
               <div className="w-full h-3 rounded-full bg-cp-card overflow-hidden flex">
-                <div style={{ width: '42.6%' }} className="bg-[#F0B93A] h-full" title="BTC 42.6%" />
-                <div style={{ width: '24.8%' }} className="bg-[#38BDF8] h-full" title="ETH 24.8%" />
-                <div style={{ width: '15.2%' }} className="bg-[#00D6A0] h-full" title="USDT 15.2%" />
-                <div style={{ width: '10.4%' }} className="bg-[#A855F7] h-full" title="SOL 10.4%" />
-                <div style={{ width: '7.0%' }} className="bg-[#F59E0B] h-full" title="Others 7.0%" />
+                {portfolioAssets.map((asset, index) => (
+                  <div
+                    key={`${asset.asset}-${index}`}
+                    style={{ width: `${asset.percent}%` }}
+                    className={[
+                      'h-full',
+                      index % 5 === 0 ? 'bg-[#F0B93A]' : '',
+                      index % 5 === 1 ? 'bg-[#38BDF8]' : '',
+                      index % 5 === 2 ? 'bg-[#00D6A0]' : '',
+                      index % 5 === 3 ? 'bg-[#A855F7]' : '',
+                      index % 5 === 4 ? 'bg-[#F59E0B]' : '',
+                    ].join(' ')}
+                    title={`${asset.asset} ${asset.percent.toFixed(1)}%`}
+                  />
+                ))}
               </div>
               <div className="flex flex-wrap items-center gap-3 text-[11px] text-cp-text-secondary font-mono pt-1">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#F0B93A]" /> BTC 42.6%</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#38BDF8]" /> ETH 24.8%</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#00D6A0]" /> USDT 15.2%</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#A855F7]" /> SOL 10.4%</span>
+                {portfolioAssets.map((asset, index) => (
+                  <span key={`${asset.asset}-label-${index}`} className="flex items-center gap-1">
+                    <span
+                      className={[
+                        'w-2 h-2 rounded-full',
+                        index % 5 === 0 ? 'bg-[#F0B93A]' : '',
+                        index % 5 === 1 ? 'bg-[#38BDF8]' : '',
+                        index % 5 === 2 ? 'bg-[#00D6A0]' : '',
+                        index % 5 === 3 ? 'bg-[#A855F7]' : '',
+                        index % 5 === 4 ? 'bg-[#F59E0B]' : '',
+                      ].join(' ')}
+                    />
+                    {asset.asset} {asset.percent.toFixed(1)}%
+                  </span>
+                ))}
               </div>
             </div>
 
             <div className="flex items-center justify-between pt-1">
               <span className="text-[11px] text-cp-text-secondary">
-                Complete custody overview with deposit and withdrawal workflows.
+                Portfolio values and allocation are recalculated from live market pricing.
               </span>
               <Link to="/wallet">
                 <Button variant="primary" size="sm" className="h-8 text-xs">

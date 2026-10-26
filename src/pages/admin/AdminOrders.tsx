@@ -1,26 +1,50 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   ArrowLeftRight,
   Search,
-  Filter,
   Eye,
-  CheckCircle2,
-  Clock,
   X,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
+import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { AdminOrderRecord, INITIAL_ADMIN_ORDERS } from '@/mock/adminData'
+import { AdminOrderRecord } from '@/mock/adminData'
 import { formatUSD } from '@/utils/formatters'
+import { adminService } from '@/services'
 
 export const AdminOrders: React.FC = () => {
-  const [orders] = useState<AdminOrderRecord[]>(INITIAL_ADMIN_ORDERS)
+  const [orders, setOrders] = useState<AdminOrderRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [pairFilter, setPairFilter] = useState<'all' | 'BTC/USDT' | 'ETH/USDT' | 'SOL/USDT' | 'XRP/USDT'>('all')
   const [sideFilter, setSideFilter] = useState<'all' | 'buy' | 'sell'>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'filled' | 'cancelled'>('all')
   const [selectedOrder, setSelectedOrder] = useState<AdminOrderRecord | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    const loadOrders = async () => {
+      try {
+        setIsLoading(true)
+        setLoadError(null)
+        const liveOrders = await adminService.getOrders()
+        if (isMounted) setOrders(liveOrders)
+      } catch (error: any) {
+        if (isMounted) {
+          setLoadError(error?.response?.data?.message || 'Unable to load order book from the API.')
+          setOrders([])
+        }
+      } finally {
+        if (isMounted) setIsLoading(false)
+      }
+    }
+
+    loadOrders()
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
@@ -56,6 +80,18 @@ export const AdminOrders: React.FC = () => {
           </Badge>
         </div>
       </div>
+
+      {loadError && (
+        <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative">
+          {loadError}
+        </div>
+      )}
+
+      {isLoading && (
+        <div className="p-4 rounded-xl border border-cp-border bg-cp-card text-xs text-cp-text-muted">
+          Loading order execution log from the backend...
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <Card className="bg-[#0c121c] border-cp-border">
