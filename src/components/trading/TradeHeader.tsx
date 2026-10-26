@@ -16,11 +16,13 @@ import { formatCurrency, formatPercentage } from '@/utils/formatters'
 export interface TradeHeaderProps {
   currentPair: TradingPairConfig
   onSelectPair: (pair: TradingPairConfig) => void
+  allPairs?: TradingPairConfig[]
 }
 
 export const TradeHeader: React.FC<TradeHeaderProps> = ({
   currentPair,
   onSelectPair,
+  allPairs,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -36,7 +38,9 @@ export const TradeHeader: React.FC<TradeHeaderProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const filteredPairs = TRADING_PAIRS.filter(
+  const pairList = allPairs && allPairs.length > 0 ? allPairs : TRADING_PAIRS
+
+  const filteredPairs = pairList.filter(
     (p) =>
       p.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.baseAsset.toLowerCase().includes(searchQuery.toLowerCase())

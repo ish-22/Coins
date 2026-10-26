@@ -458,22 +458,22 @@ export const Withdraw: React.FC = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold uppercase tracking-wider text-cp-text-secondary block">
-                    3. Destination Address
+                    3. Destination Address (Trust Wallet / External Wallet)
                   </label>
 
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={handlePasteAddress}
-                      className="text-xs text-cp-text-muted hover:text-cp-gold transition-colors font-medium"
+                      className="text-xs text-cp-gold hover:underline transition-colors font-bold flex items-center gap-1"
                     >
-                      Paste
+                      <span>Paste from Clipboard</span>
                     </button>
                     <span>•</span>
                     <button
                       type="button"
                       onClick={() => setIsAddressBookOpen(true)}
-                      className="text-xs text-cp-gold hover:underline font-bold flex items-center gap-1"
+                      className="text-xs text-cp-text-muted hover:text-cp-gold font-medium flex items-center gap-1"
                     >
                       <BookMarked className="w-3.5 h-3.5" />
                       <span>Address Book</span>
@@ -484,11 +484,17 @@ export const Withdraw: React.FC = () => {
                 <div className="relative flex items-center">
                   <input
                     type="text"
-                    placeholder={`Enter ${selectedAsset.symbol} destination address...`}
+                    placeholder={`Paste your Trust Wallet / external ${selectedAsset.symbol} address...`}
                     value={destinationAddress}
                     onChange={(e) => setDestinationAddress(e.target.value)}
                     className="w-full bg-cp-elevated border border-cp-border rounded-xl py-2.5 px-3.5 text-xs font-mono text-cp-text-primary placeholder:text-cp-text-muted focus:outline-none focus:border-cp-gold"
                   />
+                </div>
+
+                {/* Trust Wallet helper hint */}
+                <div className="flex items-center justify-between text-[11px] text-cp-text-muted px-1">
+                  <span>Supported: Trust Wallet, MetaMask, Ledger, Trezor & CEXs</span>
+                  <span className="text-cp-gold font-mono">{selectedNetwork.name}</span>
                 </div>
               </div>
 
@@ -644,6 +650,49 @@ export const Withdraw: React.FC = () => {
                 Upgrade Tier →
               </Link>
             </div>
+          </Card>
+
+          {/* Trust Wallet Withdrawal Guide Card */}
+          <Card variant="gold" padding="md" className="border-cp-gold/60 space-y-3.5 bg-gradient-to-br from-cp-card via-cp-elevated to-cp-card shadow-gold-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-cp-gold/20 flex items-center justify-center text-cp-gold font-bold text-xs">
+                  TW
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-cp-text-primary">Send to Trust Wallet</h4>
+                  <span className="text-[10px] text-cp-gold">Step-by-step external payout</span>
+                </div>
+              </div>
+              <Badge variant="gold" size="sm">Self-Custody</Badge>
+            </div>
+
+            <ol className="space-y-2 text-xs text-cp-text-secondary">
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-cp-gold/20 text-cp-gold text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  1
+                </span>
+                <span>Open your <strong>Trust Wallet</strong> app on your smartphone.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-cp-gold/20 text-cp-gold text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  2
+                </span>
+                <span>Tap <strong>Receive</strong> and search for <strong>{selectedAsset.symbol}</strong>.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-cp-gold/20 text-cp-gold text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  3
+                </span>
+                <span>Tap <strong>Copy</strong> to copy your Trust Wallet address.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-cp-gold/20 text-cp-gold text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  4
+                </span>
+                <span>Paste it in the <strong>Destination Address</strong> field on the left, enter the amount, and confirm!</span>
+              </li>
+            </ol>
           </Card>
 
           {/* Security Checklist Card */}

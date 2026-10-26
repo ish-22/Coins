@@ -32,6 +32,7 @@ import {
 } from '@/mock/depositData'
 import { formatCrypto, truncateHash } from '@/utils/formatters'
 import { DemoQRCode, DepositTransactionDetailModal } from '@/components/deposit'
+import { walletService } from '@/services'
 
 export const Deposit: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -45,6 +46,7 @@ export const Deposit: React.FC = () => {
 
   const [selectedAsset, setSelectedAsset] = useState<DepositAssetConfig>(initialAsset)
   const [selectedNetwork, setSelectedNetwork] = useState<NetworkConfig>(initialAsset.networks[0])
+  const [activeAddress, setActiveAddress] = useState<string>(initialAsset.networks[0].simulatedAddress)
 
   // Toast & Copy status
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -67,9 +69,31 @@ export const Deposit: React.FC = () => {
       if (match) {
         setSelectedAsset(match)
         setSelectedNetwork(match.networks[0])
+        setActiveAddress(match.networks[0].simulatedAddress)
       }
     }
   }, [coinParam])
+
+  // Resolve deposit address via backend API with fallback
+  useEffect(() => {
+    let isSubscribed = true
+    walletService
+      .getDepositAddress(selectedAsset.symbol, selectedNetwork.name)
+      .then((res: any) => {
+        if (isSubscribed && res?.address) {
+          setActiveAddress(res.address)
+        }
+      })
+      .catch(() => {
+        if (isSubscribed) {
+          setActiveAddress(selectedNetwork.simulatedAddress)
+        }
+      })
+
+    return () => {
+      isSubscribed = false
+    }
+  }, [selectedAsset.symbol, selectedNetwork])
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -83,6 +107,7 @@ export const Deposit: React.FC = () => {
   const handleSelectAsset = (asset: DepositAssetConfig) => {
     setSelectedAsset(asset)
     setSelectedNetwork(asset.networks[0])
+    setActiveAddress(asset.networks[0].simulatedAddress)
     setSearchParams({ coin: asset.symbol })
   }
 
@@ -359,34 +384,34 @@ export const Deposit: React.FC = () => {
             <div className="flex flex-col md:flex-row items-center gap-6">
               {/* QR Code Graphic */}
               <div className="shrink-0 flex flex-col items-center gap-2">
-                <DemoQRCode value={selectedNetwork.simulatedAddress} size={160} />
+                <DemoQRCode value={activeAddress} size={160} />
                 <span className="text-[10px] font-mono text-cp-text-muted flex items-center gap-1">
                   <QrCode className="w-3 h-3 text-cp-gold" />
-                  <span>Scan in demo wallet</span>
+                  <span>Scan with Trust Wallet camera</span>
                 </span>
               </div>
 
               {/* Address details & Copy Controls */}
               <div className="flex-1 space-y-4 w-full">
-                {/* Simulated Deposit Address */}
+                {/* Deposit Address */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-semibold text-cp-text-muted uppercase tracking-wider">
-                      Simulated Deposit Address
+                      Your {selectedAsset.symbol} Deposit Address
                     </label>
-                    <span className="text-[10px] text-cp-gold font-mono">Single-Address Custody</span>
+                    <span className="text-[10px] text-cp-gold font-mono">Trust Wallet Compatible</span>
                   </div>
 
                   <div className="p-3 rounded-xl bg-cp-card border border-cp-border flex items-center justify-between gap-3 group">
                     <span className="font-mono text-xs sm:text-sm text-cp-text-primary break-all select-all font-semibold">
-                      {selectedNetwork.simulatedAddress}
+                      {activeAddress}
                     </span>
 
                     <Button
                       type="button"
                       variant="primary"
                       size="sm"
-                      onClick={() => handleCopy(selectedNetwork.simulatedAddress, 'Deposit Address')}
+                      onClick={() => handleCopy(activeAddress, 'Deposit Address')}
                       className="shrink-0 text-xs px-3 py-1.5"
                     >
                       {copiedAddress ? (
@@ -397,11 +422,21 @@ export const Deposit: React.FC = () => {
                       ) : (
                         <>
                           <Copy className="w-3.5 h-3.5 mr-1" />
-                          <span>Copy</span>
+                          <span>Copy Address</span>
                         </>
                       )}
                     </Button>
                   </div>
+                </div>
+
+                {/* Compatible Wallets Tag Strip */}
+                <div className="flex items-center gap-2 pt-1 flex-wrap text-[10px] text-cp-text-muted">
+                  <span className="text-cp-gold font-bold">Compatible:</span>
+                  <span className="px-2 py-0.5 rounded-md bg-cp-elevated border border-cp-border font-medium text-cp-text-primary">Trust Wallet</span>
+                  <span className="px-2 py-0.5 rounded-md bg-cp-elevated border border-cp-border font-medium text-cp-text-primary">MetaMask</span>
+                  <span className="px-2 py-0.5 rounded-md bg-cp-elevated border border-cp-border font-medium text-cp-text-primary">Binance</span>
+                  <span className="px-2 py-0.5 rounded-md bg-cp-elevated border border-cp-border font-medium text-cp-text-primary">Coinbase</span>
+                  <span className="px-2 py-0.5 rounded-md bg-cp-elevated border border-cp-border font-medium text-cp-text-primary">Hardware Wallets</span>
                 </div>
 
                 {/* Memo / Destination Tag if required (e.g. XRP) */}
@@ -452,6 +487,49 @@ export const Deposit: React.FC = () => {
 
         {/* Right 5 Columns: Security Warnings, FAQs & Quick Status */}
         <div className="lg:col-span-5 space-y-6">
+          {/* Trust Wallet & Web3 Walkthrough Card */}
+          <Card variant="gold" padding="md" className="border-cp-gold/60 space-y-3.5 bg-gradient-to-br from-cp-card via-cp-elevated to-cp-card shadow-gold-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-cp-gold/20 flex items-center justify-center text-cp-gold font-bold text-xs">
+                  TW
+                </div>
+                <div>
+                  <h4 className="font-bold text-sm text-cp-text-primary">Deposit with Trust Wallet</h4>
+                  <span className="text-[10px] text-cp-gold">Instant mobile transfer</span>
+                </div>
+              </div>
+              <Badge variant="gold" size="sm">Direct Scan</Badge>
+            </div>
+
+            <ol className="space-y-2 text-xs text-cp-text-secondary">
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-cp-gold/20 text-cp-gold text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  1
+                </span>
+                <span>Open your <strong>Trust Wallet</strong> app on your smartphone.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-cp-gold/20 text-cp-gold text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  2
+                </span>
+                <span>Tap <strong>Send</strong> and select <strong>{selectedAsset.symbol}</strong>.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-cp-gold/20 text-cp-gold text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  3
+                </span>
+                <span>Tap the <strong>QR Scanner icon</strong> in Trust Wallet to scan the code on the left, or paste the copied address.</span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-cp-gold/20 text-cp-gold text-[11px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  4
+                </span>
+                <span>Make sure network is set to <strong>{selectedNetwork.name}</strong>, enter amount, and confirm!</span>
+              </li>
+            </ol>
+          </Card>
+
           {/* 7. Crucial Warning Card */}
           <Card variant="elevated" padding="md" className="border-cp-gold/40 space-y-3.5">
             <div className="flex items-center gap-2.5 text-cp-gold">

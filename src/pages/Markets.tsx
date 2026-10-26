@@ -31,6 +31,7 @@ import {
 } from '@/mock/marketsPageData'
 import { formatCurrency, formatPercentage } from '@/utils/formatters'
 import { MarketSparkline } from '@/components/markets/MarketSparkline'
+import { marketService } from '@/services'
 
 type TabType = 'all' | 'spot' | 'gainers' | 'losers' | 'watchlist'
 type SortField = 'price' | 'change' | 'volume' | 'marketCap'
@@ -42,6 +43,7 @@ export const Markets: React.FC = () => {
   const [sortField, setSortField] = useState<SortField | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [marketsList, setMarketsList] = useState<MarketItem[]>(mockMarketItems)
 
   // Persistent Watchlist state
   const [watchlist, setWatchlist] = useState<string[]>(() => {
@@ -52,6 +54,49 @@ export const Markets: React.FC = () => {
       return ['bitcoin', 'ethereum', 'solana', 'ripple']
     }
   })
+
+  // Fetch real live prices from backend & Binance feed
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchLivePrices = () => {
+      marketService
+        .getTickers()
+        .then((pairs) => {
+          if (isMounted && pairs && pairs.length > 0) {
+            setMarketsList((prev) => {
+              return prev.map((item) => {
+                const matched = pairs.find(
+                  (p) =>
+                    p.baseAsset.toLowerCase() === item.symbol.toLowerCase() ||
+                    p.symbol.toLowerCase().startsWith(item.symbol.toLowerCase())
+                )
+                if (matched) {
+                  return {
+                    ...item,
+                    price: matched.price,
+                    change24h: matched.change24h,
+                    high24h: matched.high24h,
+                    low24h: matched.low24h,
+                    volume24h: matched.volume24hUsdt,
+                  }
+                }
+                return item
+              })
+            })
+          }
+        })
+        .catch(() => {})
+    }
+
+    fetchLivePrices()
+    const timer = setInterval(fetchLivePrices, 8000)
+
+    return () => {
+      isMounted = false
+      clearInterval(timer)
+    }
+  }, [])
 
   useEffect(() => {
     try {
@@ -73,7 +118,35 @@ export const Markets: React.FC = () => {
 
   const handleRefresh = () => {
     setIsRefreshing(true)
-    setTimeout(() => setIsRefreshing(false), 600)
+    marketService
+      .getTickers()
+      .then((pairs) => {
+        if (pairs && pairs.length > 0) {
+          setMarketsList((prev) =>
+            prev.map((item) => {
+              const matched = pairs.find(
+                (p) =>
+                  p.baseAsset.toLowerCase() === item.symbol.toLowerCase() ||
+                  p.symbol.toLowerCase().startsWith(item.symbol.toLowerCase())
+              )
+              if (matched) {
+                return {
+                  ...item,
+                  price: matched.price,
+                  change24h: matched.change24h,
+                  high24h: matched.high24h,
+                  low24h: matched.low24h,
+                  volume24h: matched.volume24hUsdt,
+                }
+              }
+              return item
+            })
+          )
+        }
+      })
+      .finally(() => {
+        setTimeout(() => setIsRefreshing(false), 500)
+      })
   }
 
   // Handle column sort toggle
@@ -91,7 +164,7 @@ export const Markets: React.FC = () => {
 
   // Filter & sort markets list
   const processedMarkets = useMemo(() => {
-    let result = [...mockMarketItems]
+    let result = [...marketsList]
 
     // 1. Filter by Tab
     if (activeTab === 'spot') {

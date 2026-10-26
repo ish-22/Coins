@@ -37,6 +37,7 @@ export const Trade: React.FC = () => {
     ) || TRADING_PAIRS[0]
 
   const [currentPair, setCurrentPair] = useState<TradingPairConfig>(initialPair)
+  const [tradingPairs, setTradingPairs] = useState<TradingPairConfig[]>(TRADING_PAIRS)
   const [selectedPrice, setSelectedPrice] = useState<number | null>(null)
 
   // Account balances (simulated)
@@ -74,7 +75,7 @@ export const Trade: React.FC = () => {
     setSearchParams({ pair: pair.id })
   }
 
-  // Load live orders & live tickers if available
+  // Load live orders
   useEffect(() => {
     let isMounted = true
     tradeService.getOrders()
@@ -84,14 +85,49 @@ export const Trade: React.FC = () => {
           if (res.orderHistory && res.orderHistory.length > 0) setOrderHistory(res.orderHistory)
         }
       })
-      .catch(() => {
-        // Fallback to initial mock orders
-      })
+      .catch(() => {})
 
     return () => {
       isMounted = false
     }
   }, [])
+
+  // Poll live tickers & live orderbook from Binance backend
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchLiveTickersAndBook = () => {
+      marketService.getTickers()
+        .then((pairs) => {
+          if (isMounted && pairs && pairs.length > 0) {
+            setTradingPairs(pairs)
+            const matched = pairs.find(
+              (p) => p.id === currentPair.id || p.symbol === currentPair.symbol
+            )
+            if (matched) {
+              setCurrentPair(matched)
+            }
+          }
+        })
+        .catch(() => {})
+
+      marketService.getOrderBook(currentPair.id)
+        .then((book) => {
+          if (isMounted && book && book.asks && book.bids && book.asks.length > 0) {
+            setOrderBook(book)
+          }
+        })
+        .catch(() => {})
+    }
+
+    fetchLiveTickersAndBook()
+    const timer = setInterval(fetchLiveTickersAndBook, 8000)
+
+    return () => {
+      isMounted = false
+      clearInterval(timer)
+    }
+  }, [currentPair.id])
 
   // Auto-dismiss toast
   useEffect(() => {
@@ -251,6 +287,7 @@ export const Trade: React.FC = () => {
         <TradeHeader
           currentPair={currentPair}
           onSelectPair={handleSelectPair}
+          allPairs={tradingPairs}
         />
 
         {/* Desktop Multi-column Grid / Mobile Stacked Grid */}
