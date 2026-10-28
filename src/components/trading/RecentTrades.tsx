@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Activity, Clock } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { MarketTrade, generateRecentTrades } from '@/mock/tradingData'
+import { marketService } from '@/services/marketService'
 
 export interface RecentTradesProps {
   basePrice: number
@@ -18,28 +19,29 @@ export const RecentTrades: React.FC<RecentTradesProps> = ({
     generateRecentTrades(basePrice)
   )
 
-  // Periodic simulated live trade stream
+  // Fetch real live trades from backend API and stream updates
   useEffect(() => {
-    const interval = setInterval(() => {
-      const isBuy = Math.random() > 0.47
-      const delta = (Math.random() - 0.49) * 8
-      const price = Number((basePrice + delta).toFixed(2))
-      const amount = Number((Math.random() * 0.45 + 0.01).toFixed(4))
-      const time = new Date().toTimeString().split(' ')[0]
+    let isMounted = true
+    const pairId = `${baseAsset}-${quoteAsset}`
 
-      const newTrade: MarketTrade = {
-        id: `tr-${Date.now()}`,
-        price,
-        amount,
-        time,
-        side: isBuy ? 'buy' : 'sell',
-      }
+    const loadLiveTrades = () => {
+      marketService.getRecentTrades(pairId)
+        .then((data) => {
+          if (isMounted && data && data.length > 0) {
+            setTrades(data)
+          }
+        })
+        .catch(() => {})
+    }
 
-      setTrades((prev) => [newTrade, ...prev.slice(0, 19)])
-    }, 2800)
+    loadLiveTrades()
+    const interval = setInterval(loadLiveTrades, 4000)
 
-    return () => clearInterval(interval)
-  }, [basePrice])
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
+  }, [baseAsset, quoteAsset])
 
   return (
     <div className="w-full bg-cp-card border-b lg:border-b-0 border-cp-border flex flex-col select-none text-xs font-mono">

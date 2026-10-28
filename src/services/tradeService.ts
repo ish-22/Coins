@@ -7,13 +7,18 @@ export interface PlaceOrderPayload {
   type: 'limit' | 'market' | 'stop_limit'
   price: number
   amount: number
+  stopPrice?: number
+}
+
+export interface TradeOrdersResponse {
+  openOrders: (ActiveOrder & { dateTime?: string; feeEstimate?: number })[]
+  orderHistory: (ActiveOrder & { createdAt?: string; updatedAt?: string; fee?: number; feeAsset?: string; avgPrice?: number; executed?: number })[]
+  tradeHistory?: any[]
 }
 
 export const tradeService = {
-  async getOrders(): Promise<{ openOrders: ActiveOrder[]; orderHistory: ActiveOrder[] }> {
-    const res = await apiClient.get<{ openOrders: ActiveOrder[]; orderHistory: ActiveOrder[] }>(
-      '/trade/orders'
-    )
+  async getOrders(): Promise<TradeOrdersResponse> {
+    const res = await apiClient.get<TradeOrdersResponse>('/trade/orders')
     return res.data
   },
 

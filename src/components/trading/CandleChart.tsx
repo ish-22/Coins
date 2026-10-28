@@ -15,6 +15,7 @@ import {
   generateCandles,
 } from '@/mock/tradingData'
 import { formatCurrency } from '@/utils/formatters'
+import { marketService } from '@/services/marketService'
 
 export interface CandleChartProps {
   basePrice: number
@@ -31,15 +32,36 @@ export const CandleChart: React.FC<CandleChartProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [hoveredCandle, setHoveredCandle] = useState<CandleData | null>(null)
   const [crosshairPos, setCrosshairPos] = useState<{ x: number; y: number } | null>(null)
+  const [liveCandles, setLiveCandles] = useState<CandleData[]>([])
 
   const containerRef = useRef<HTMLDivElement>(null)
 
   const timeframes: Timeframe[] = ['1m', '5m', '15m', '1h', '4h', '1D', '1W']
 
-  // Generate data based on basePrice and timeframe
+  // Fetch real live candlestick series from backend
+  React.useEffect(() => {
+    let isMounted = true
+    const pairId = pairSymbol.replace('/', '-')
+    marketService.getCandles(pairId, timeframe.toLowerCase())
+      .then((data) => {
+        if (isMounted && data && data.length > 0) {
+          setLiveCandles(data)
+        }
+      })
+      .catch(() => {})
+
+    return () => {
+      isMounted = false
+    }
+  }, [pairSymbol, timeframe])
+
+  // Data based on live API candles with fallback to generated candles
   const candles = useMemo(() => {
+    if (liveCandles && liveCandles.length > 0) {
+      return liveCandles
+    }
     return generateCandles(basePrice, timeframe)
-  }, [basePrice, timeframe])
+  }, [liveCandles, basePrice, timeframe])
 
   // Compute Moving Averages
   const ma7Points = useMemo(() => {

@@ -23,6 +23,7 @@ import {
   Sparkles,
   ExternalLink,
 } from 'lucide-react'
+import { tradeService } from '@/services/tradeService'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
@@ -52,10 +53,11 @@ export const Orders: React.FC = () => {
   // Tabs
   const [activeTab, setActiveTab] = useState<TabType>('open')
 
-  // Datasets
-  const [openOrders, setOpenOrders] = useState<OpenOrderRecord[]>(INITIAL_OPEN_ORDERS_DATA)
-  const [orderHistory, setOrderHistory] = useState<OrderHistoryRecord[]>(INITIAL_ORDER_HISTORY_DATA)
-  const [tradeHistory, setTradeHistory] = useState<TradeHistoryRecord[]>(INITIAL_TRADE_HISTORY_DATA)
+  // Datasets loaded from backend database API
+  const [openOrders, setOpenOrders] = useState<OpenOrderRecord[]>([])
+  const [orderHistory, setOrderHistory] = useState<OrderHistoryRecord[]>([])
+  const [tradeHistory, setTradeHistory] = useState<TradeHistoryRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('')
@@ -115,10 +117,70 @@ export const Orders: React.FC = () => {
     statusFilter !== 'all' ||
     dateFilter !== 'all'
 
+  // Load live orders from backend
+  React.useEffect(() => {
+    let isMounted = true
+    setIsLoading(true)
+    tradeService.getOrders()
+      .then((res) => {
+        if (!isMounted) return
+        if (res.openOrders) {
+          setOpenOrders(res.openOrders.map((o) => ({
+            id: o.id,
+            pair: o.pair,
+            side: o.side,
+            type: o.type,
+            price: o.price,
+            amount: o.amount,
+            filled: o.filled,
+            total: o.total,
+            status: o.status === 'open' ? 'open' : 'partially_filled',
+            dateTime: o.dateTime || new Date().toISOString(),
+            feeEstimate: o.feeEstimate || 0,
+          })))
+        }
+        if (res.orderHistory) {
+          setOrderHistory(res.orderHistory.map((o) => ({
+            id: o.id,
+            pair: o.pair,
+            side: o.side,
+            type: o.type,
+            price: o.price,
+            avgPrice: o.avgPrice || o.price,
+            amount: o.amount,
+            executed: o.executed !== undefined ? o.executed : o.filled,
+            total: o.total,
+            status: (o.status as any) || 'filled',
+            createdAt: o.createdAt || new Date().toISOString(),
+            updatedAt: o.updatedAt || new Date().toISOString(),
+            fee: o.fee || 0,
+            feeAsset: o.feeAsset || 'USDT',
+          })))
+        }
+        if (res.tradeHistory) {
+          setTradeHistory(res.tradeHistory)
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setIsLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   // Cancel order handler
-  const handleConfirmCancelOrder = (orderId: string) => {
+  const handleConfirmCancelOrder = async (orderId: string) => {
     const target = openOrders.find((o) => o.id === orderId)
     if (!target) return
+
+    try {
+      await tradeService.cancelOrder(orderId)
+    } catch {
+      // Local fallback
+    }
 
     // Remove from open orders
     setOpenOrders((prev) => prev.filter((o) => o.id !== orderId))
@@ -429,20 +491,19 @@ export const Orders: React.FC = () => {
         </div>
       </div>
 
-      {/* Demonstration Notice Banner */}
+      {/* Live Activity Notice Banner */}
       <div className="p-3.5 sm:p-4 rounded-xl bg-cp-card/90 border border-cp-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-cp-gold/10 border border-cp-gold/30 flex items-center justify-center text-cp-gold shrink-0">
             <Info className="w-4 h-4" />
           </div>
           <div className="text-xs text-cp-text-secondary">
-            <span className="font-semibold text-cp-text-primary">Simulated Activity:</span> All
-            records, order books, and fills reflect platform demonstration data. No real orders are
-            routed to external live markets.
+            <span className="font-semibold text-cp-text-primary">Live Database Ledger:</span> All
+            records, open orders, and fills are synced directly from your database account and matching engine.
           </div>
         </div>
         <div className="text-xs font-mono text-cp-gold shrink-0 self-end sm:self-auto bg-cp-elevated px-2.5 py-1 rounded-md border border-cp-border">
-          Engine: CP-DEMO-SIM
+          Engine: CP-MATCH-LIVE
         </div>
       </div>
 

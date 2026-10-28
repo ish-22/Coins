@@ -81,32 +81,52 @@ export const Header: React.FC = () => {
     }
   }, [themeMode])
 
-  const notifications = [
+  const [headerNotifications, setHeaderNotifications] = useState<
     {
-      id: '1',
-      title: 'Limit Order Filled',
-      desc: 'Bought 0.25 BTC at $68,120.00 USDT',
-      time: '12m ago',
-      icon: CheckCircle2,
-      isPositive: true,
-    },
-    {
-      id: '2',
-      title: 'Price Alert: SOL/USDT',
-      desc: 'Solana broke 24h high at $184.65 (+8.75%)',
-      time: '1h ago',
-      icon: TrendingUp,
-      isPositive: true,
-    },
-    {
-      id: '3',
-      title: 'Security Notice',
-      desc: '2FA authentication verified for current session',
-      time: '3h ago',
-      icon: ShieldCheck,
-      isPositive: false,
-    },
-  ]
+      id: string
+      title: string
+      desc: string
+      time: string
+      icon: any
+      isPositive: boolean
+    }[]
+  >([])
+
+  useEffect(() => {
+    let isMounted = true
+    import('@/services/notificationService').then(({ notificationService }) => {
+      notificationService
+        .getNotifications()
+        .then((items) => {
+          if (!isMounted || !items || items.length === 0) return
+          const mapped = items.slice(0, 5).map((n) => {
+            const icon =
+              n.category === 'trading'
+                ? CheckCircle2
+                : n.category === 'security'
+                ? ShieldCheck
+                : n.category === 'transactions'
+                ? TrendingUp
+                : Sparkles
+
+            return {
+              id: n.id,
+              title: n.title,
+              desc: n.message,
+              time: n.timestamp || 'Recent',
+              icon,
+              isPositive: n.category !== 'security',
+            }
+          })
+          setHeaderNotifications(mapped)
+        })
+        .catch(() => {})
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const filteredAssets = mockCryptoAssets.filter(
     (asset) =>
@@ -253,7 +273,7 @@ export const Header: React.FC = () => {
                     </div>
 
                     <div className="divide-y divide-cp-border/50 max-h-72 overflow-y-auto">
-                      {notifications.map((n) => {
+                      {headerNotifications.map((n) => {
                         const Icon = n.icon
                         return (
                           <div
