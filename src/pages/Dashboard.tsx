@@ -90,15 +90,16 @@ export const Dashboard: React.FC = () => {
 
   const maskValue = (val: string) => (hideBalances ? '••••••••' : val)
 
-  const availablePercent = (
-    (portfolioSummary.availableBalanceUsd / portfolioSummary.totalBalanceUsd) *
-    100
-  ).toFixed(1)
+  const total = portfolioSummary.totalBalanceUsd
+  const availablePercent =
+    total > 0
+      ? ((portfolioSummary.availableBalanceUsd / total) * 100).toFixed(1)
+      : '0.0'
 
-  const lockedPercent = (
-    (portfolioSummary.lockedBalanceUsd / portfolioSummary.totalBalanceUsd) *
-    100
-  ).toFixed(1)
+  const lockedPercent =
+    total > 0
+      ? ((portfolioSummary.lockedBalanceUsd / total) * 100).toFixed(1)
+      : '0.0'
 
   return (
     <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-300">

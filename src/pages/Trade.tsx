@@ -21,7 +21,7 @@ import {
   OrderConfirmationData,
   BottomOrdersPanel,
 } from '@/components/trading'
-import { tradeService, marketService } from '@/services'
+import { tradeService, marketService, walletService } from '@/services'
 
 export const Trade: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -40,13 +40,13 @@ export const Trade: React.FC = () => {
   const [tradingPairs, setTradingPairs] = useState<TradingPairConfig[]>(TRADING_PAIRS)
   const [selectedPrice, setSelectedPrice] = useState<number | null>(null)
 
-  // Account balances (simulated)
-  const [availableUsdt, setAvailableUsdt] = useState<number>(14250.0)
-  const [availableCrypto, setAvailableCrypto] = useState<number>(0.3542)
+  // Account balances loaded from live database
+  const [availableUsdt, setAvailableUsdt] = useState<number>(0)
+  const [availableCrypto, setAvailableCrypto] = useState<number>(0)
 
-  // Orders state
-  const [openOrders, setOpenOrders] = useState<ActiveOrder[]>(INITIAL_OPEN_ORDERS)
-  const [orderHistory, setOrderHistory] = useState<ActiveOrder[]>(INITIAL_ORDER_HISTORY)
+  // Orders state loaded from live database
+  const [openOrders, setOpenOrders] = useState<ActiveOrder[]>([])
+  const [orderHistory, setOrderHistory] = useState<ActiveOrder[]>([])
 
   // Order Book state
   const [orderBook, setOrderBook] = useState<{
@@ -75,14 +75,33 @@ export const Trade: React.FC = () => {
     setSearchParams({ pair: pair.id })
   }
 
+  // Fetch live wallet balances from backend
+  const fetchWalletBalances = () => {
+    walletService.getAssets()
+      .then((assets) => {
+        if (assets && assets.length > 0) {
+          const usdtAsset = assets.find((a) => a.symbol === 'USDT')
+          if (usdtAsset) setAvailableUsdt(usdtAsset.availableBalance)
+
+          const baseCoin = assets.find((a) => a.symbol === currentPair.baseAsset)
+          if (baseCoin) setAvailableCrypto(baseCoin.availableBalance)
+        }
+      })
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    fetchWalletBalances()
+  }, [currentPair.baseAsset])
+
   // Load live orders
   useEffect(() => {
     let isMounted = true
     tradeService.getOrders()
       .then((res) => {
         if (isMounted) {
-          if (res.openOrders && res.openOrders.length > 0) setOpenOrders(res.openOrders)
-          if (res.orderHistory && res.orderHistory.length > 0) setOrderHistory(res.orderHistory)
+          setOpenOrders(res.openOrders || [])
+          setOrderHistory(res.orderHistory || [])
         }
       })
       .catch(() => {})
@@ -189,11 +208,13 @@ export const Trade: React.FC = () => {
         type: pendingOrder.type,
         price: pendingOrder.price,
         amount: pendingOrder.amount,
+        stopPrice: pendingOrder.stopPrice,
       })
       if (apiRes.order) {
         newOrder.id = apiRes.order.id
         newOrder.status = apiRes.order.status
       }
+      fetchWalletBalances()
     } catch {
       // Graceful offline fallback
     }
@@ -239,6 +260,7 @@ export const Trade: React.FC = () => {
 
     try {
       await tradeService.cancelOrder(orderId)
+      fetchWalletBalances()
     } catch {
       // Local fallback
     }

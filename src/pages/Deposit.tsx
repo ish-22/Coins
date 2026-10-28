@@ -126,8 +126,50 @@ export const Deposit: React.FC = () => {
     setToastMessage(`Simulated ${label} copied to clipboard!`)
   }
 
+  // Deposit history state from live database API
+  const [depositHistory, setDepositHistory] = useState<DepositHistoryRecord[]>([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(true)
+
+  // Fetch real deposit transactions from database
+  const loadDepositHistory = () => {
+    setIsLoadingHistory(true)
+    walletService
+      .getTransactions()
+      .then((txs) => {
+        if (txs && txs.length > 0) {
+          const depositsOnly = txs
+            .filter((t) => t.type === 'deposit')
+            .map((t) => ({
+              id: t.id,
+              txHash: t.txHash || '0x' + t.id,
+              asset: t.asset,
+              amount: t.amount,
+              network: t.network || 'Mainnet',
+              status: t.status as 'completed' | 'pending' | 'failed',
+              date: t.date,
+              time: t.time,
+              address: t.address || 'CoinPlus Deposit Vault',
+              confirmations: t.confirmations || 'Confirmed',
+            }))
+          setDepositHistory(depositsOnly)
+        } else {
+          setDepositHistory([])
+        }
+      })
+      .catch(() => {
+        setDepositHistory([])
+      })
+      .finally(() => {
+        setIsLoadingHistory(false)
+      })
+  }
+
+  useEffect(() => {
+    loadDepositHistory()
+  }, [])
+
   // Filtered deposit history
-  const filteredHistory = MOCK_DEPOSIT_HISTORY.filter((item) => {
+  const filteredHistory = depositHistory.filter((item) => {
     if (historyFilter === 'all') return true
     return item.status === historyFilter
   })
@@ -787,8 +829,8 @@ export const Deposit: React.FC = () => {
 
         {/* Footer info */}
         <div className="p-3 sm:px-6 bg-cp-elevated/40 border-t border-cp-border text-xs text-cp-text-muted flex items-center justify-between">
-          <span>Demonstration Deposit Ledger</span>
-          <Link to="/wallet" className="text-cp-gold hover:underline font-semibold">
+          <span>Live Deposit Ledger</span>
+          <Link to="/assets" className="text-cp-gold hover:underline font-semibold">
             All Wallet Transactions →
           </Link>
         </div>

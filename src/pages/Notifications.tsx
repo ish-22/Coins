@@ -38,19 +38,14 @@ import {
   INITIAL_NOTIFICATIONS,
 } from '@/mock/notificationsData'
 import { DeleteNotificationModal } from '@/components/notifications'
+import { notificationService } from '@/services/notificationService'
 
 type TabType = 'all' | 'unread' | NotificationCategory
 
 export const Notifications: React.FC = () => {
-  // Notifications state persisted in localStorage
-  const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('cp_notifications_list')
-      return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS
-    } catch {
-      return INITIAL_NOTIFICATIONS
-    }
-  })
+  // Live Notifications state loaded from backend API
+  const [notifications, setNotifications] = useState<NotificationItem[]>([])
+  const [isLoading, setIsLoading] = useState<boolean>(true)
 
   // Active filter tab & search query
   const [activeTab, setActiveTab] = useState<TabType>('all')
@@ -78,14 +73,26 @@ export const Notifications: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3000)
   }
 
-  // Persist to localStorage on change
+  // Fetch notifications from backend API
+  const loadNotifications = () => {
+    setIsLoading(true)
+    notificationService.getNotifications()
+      .then((data) => {
+        if (data && Array.isArray(data)) {
+          setNotifications(data)
+        }
+      })
+      .catch(() => {
+        // Fallback gracefully to empty state
+      })
+      .finally(() => {
+        setIsLoading(false)
+      })
+  }
+
   useEffect(() => {
-    try {
-      localStorage.setItem('cp_notifications_list', JSON.stringify(notifications))
-    } catch {
-      // ignore
-    }
-  }, [notifications])
+    loadNotifications()
+  }, [])
 
   // Count unread
   const unreadCount = useMemo(
@@ -94,17 +101,30 @@ export const Notifications: React.FC = () => {
   )
 
   // Toggle single read status
-  const handleToggleRead = (id: string, e?: React.MouseEvent) => {
+  const handleToggleRead = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation()
+    // Optimistic UI update
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, isRead: !n.isRead } : n))
     )
+
+    try {
+      await notificationService.toggleRead(id)
+    } catch {
+      // Local fallback kept
+    }
   }
 
   // Mark all as read
-  const handleMarkAllAsRead = () => {
+  const handleMarkAllAsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
     triggerToast('All notifications marked as read.')
+
+    try {
+      await notificationService.markAllAsRead()
+    } catch {
+      // Handled
+    }
   }
 
   // Prompt delete single
@@ -127,14 +147,24 @@ export const Notifications: React.FC = () => {
   }
 
   // Confirm delete handler
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (deleteModalConfig.isClearAll) {
       setNotifications((prev) => prev.filter((n) => !n.isRead))
       triggerToast('All read notifications removed.')
+      try {
+        await notificationService.clearAllRead()
+      } catch {
+        // Handled
+      }
     } else if (deleteModalConfig.notification) {
       const idToDelete = deleteModalConfig.notification.id
       setNotifications((prev) => prev.filter((n) => n.id !== idToDelete))
       triggerToast('Notification deleted.')
+      try {
+        await notificationService.deleteNotification(idToDelete)
+      } catch {
+        // Handled
+      }
     }
     setDeleteModalConfig({ isOpen: false, notification: null, isClearAll: false })
   }
