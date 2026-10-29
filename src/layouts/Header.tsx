@@ -29,7 +29,7 @@ import { mockCryptoAssets } from '@/mock'
 
 export const Header: React.FC = () => {
   const { openMobileDrawer, isSearchOpen, setSearchOpen, toggleSearch } = useLayout()
-  const { user, logout } = useAuth()
+  const { user, isAuthenticated, logout } = useAuth()
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
@@ -93,6 +93,11 @@ export const Header: React.FC = () => {
   >([])
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setHeaderNotifications([])
+      return
+    }
+
     let isMounted = true
     import('@/services/notificationService').then(({ notificationService }) => {
       notificationService
@@ -126,7 +131,7 @@ export const Header: React.FC = () => {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [isAuthenticated])
 
   const filteredAssets = mockCryptoAssets.filter(
     (asset) =>
@@ -312,120 +317,138 @@ export const Header: React.FC = () => {
                 )}
               </div>
 
-              {/* Quick Deposit Button (Desktop) */}
-              <Link to="/deposit" className="hidden sm:inline-flex">
-                <Button variant="primary" size="sm">
-                  Deposit
-                </Button>
-              </Link>
+              {/* Authenticated Controls vs Guest CTAs */}
+              {isAuthenticated ? (
+                <>
+                  {/* Quick Deposit Button (Desktop) */}
+                  <Link to="/deposit" className="hidden sm:inline-flex">
+                    <Button variant="primary" size="sm">
+                      Deposit
+                    </Button>
+                  </Link>
 
-              {/* Profile Dropdown */}
-              <div className="relative" ref={profileRef}>
-                <button
-                  type="button"
-                  onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                  className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-cp-elevated transition-colors focus:outline-none"
-                  aria-label="User profile menu"
-                >
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-extrabold text-xs shadow-gold-sm">
-                    {user?.avatarInitials || user?.avatar_initials || 'CP'}
-                  </div>
-                  <div className="hidden md:flex flex-col text-left leading-none">
-                    <span className="text-xs font-bold text-cp-text-primary">
-                      {user?.displayName || user?.name || user?.fullName || 'User'}
-                    </span>
-                    <span className="text-[10px] text-cp-gold font-medium mt-0.5">
-                      {user?.vipLevel || user?.vip_level || 'VIP 1'}
-                    </span>
-                  </div>
-                  <ChevronDown className="hidden md:block w-3.5 h-3.5 text-cp-text-muted" />
-                </button>
+                  {/* Profile Dropdown */}
+                  <div className="relative" ref={profileRef}>
+                    <button
+                      type="button"
+                      onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                      className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-cp-elevated transition-colors focus:outline-none"
+                      aria-label="User profile menu"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-extrabold text-xs shadow-gold-sm">
+                        {user?.avatarInitials || user?.avatar_initials || 'CP'}
+                      </div>
+                      <div className="hidden md:flex flex-col text-left leading-none">
+                        <span className="text-xs font-bold text-cp-text-primary">
+                          {user?.displayName || user?.name || user?.fullName || 'User'}
+                        </span>
+                        <span className="text-[10px] text-cp-gold font-medium mt-0.5">
+                          {user?.vipLevel || user?.vip_level || 'VIP 1'}
+                        </span>
+                      </div>
+                      <ChevronDown className="hidden md:block w-3.5 h-3.5 text-cp-text-muted" />
+                    </button>
 
-                {profileDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-64 rounded-xl bg-cp-elevated border border-cp-border shadow-elevated z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                    {/* User summary header */}
-                    <div className="p-4 border-b border-cp-border bg-cp-card/60">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-bold text-sm">
-                          {user?.avatarInitials || user?.avatar_initials || 'CP'}
+                    {profileDropdownOpen && (
+                      <div className="absolute right-0 mt-2 w-64 rounded-xl bg-cp-elevated border border-cp-border shadow-elevated z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                        {/* User summary header */}
+                        <div className="p-4 border-b border-cp-border bg-cp-card/60">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-bold text-sm">
+                              {user?.avatarInitials || user?.avatar_initials || 'CP'}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <span className="text-sm font-bold text-cp-text-primary truncate block">
+                                {user?.displayName || user?.name || user?.fullName || 'User'}
+                              </span>
+                              <span className="text-xs text-cp-text-muted truncate block">
+                                {user?.email || 'user@coinplus.io'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 p-2.5 rounded-lg bg-cp-elevated border border-cp-border flex items-center justify-between text-xs">
+                            <span className="text-cp-text-muted">UID:</span>
+                            <span className="font-mono font-bold text-cp-gold">{user?.uid || '—'}</span>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <span className="text-sm font-bold text-cp-text-primary truncate block">
-                            {user?.displayName || user?.name || user?.fullName || 'User'}
-                          </span>
-                          <span className="text-xs text-cp-text-muted truncate block">
-                            {user?.email || 'user@coinplus.io'}
-                          </span>
+
+                        {/* Menu links */}
+                        <div className="p-1.5 space-y-0.5">
+                          <Link
+                            to="/account"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-cp-text-secondary hover:text-cp-text-primary hover:bg-cp-card transition-colors"
+                          >
+                            <User className="w-4 h-4 text-cp-gold" />
+                            <span>My Account</span>
+                          </Link>
+
+                          <Link
+                            to="/assets"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-cp-text-secondary hover:text-cp-text-primary hover:bg-cp-card transition-colors"
+                          >
+                            <Wallet className="w-4 h-4 text-cp-gold" />
+                            <span>Wallet / Assets</span>
+                          </Link>
+
+                          <Link
+                            to="/kyc"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-cp-text-secondary hover:text-cp-text-primary hover:bg-cp-card transition-colors"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <ShieldCheck className="w-4 h-4 text-cp-positive" />
+                              <span>KYC Verification</span>
+                            </div>
+                            <Badge variant="positive" size="sm" className="text-[9px] py-0">
+                              {user?.verificationTier || user?.kyc_tier || 'Tier 0'}
+                            </Badge>
+                          </Link>
+
+                          <Link
+                            to="/settings"
+                            onClick={() => setProfileDropdownOpen(false)}
+                            className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-cp-text-secondary hover:text-cp-text-primary hover:bg-cp-card transition-colors"
+                          >
+                            <Settings className="w-4 h-4 text-cp-gold" />
+                            <span>Security & Settings</span>
+                          </Link>
+                        </div>
+
+                        <div className="p-1.5 border-t border-cp-border">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setProfileDropdownOpen(false)
+                              await logout()
+                              navigate('/')
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-cp-negative hover:bg-cp-negative/10 transition-colors"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            <span>Sign Out</span>
+                          </button>
                         </div>
                       </div>
-
-                      <div className="mt-3 p-2.5 rounded-lg bg-cp-elevated border border-cp-border flex items-center justify-between text-xs">
-                        <span className="text-cp-text-muted">UID:</span>
-                        <span className="font-mono font-bold text-cp-gold">{user?.uid || '—'}</span>
-                      </div>
-                    </div>
-
-                    {/* Menu links */}
-                    <div className="p-1.5 space-y-0.5">
-                      <Link
-                        to="/account"
-                        onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-cp-text-secondary hover:text-cp-text-primary hover:bg-cp-card transition-colors"
-                      >
-                        <User className="w-4 h-4 text-cp-gold" />
-                        <span>My Account</span>
-                      </Link>
-
-                      <Link
-                        to="/assets"
-                        onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-cp-text-secondary hover:text-cp-text-primary hover:bg-cp-card transition-colors"
-                      >
-                        <Wallet className="w-4 h-4 text-cp-gold" />
-                        <span>Wallet / Assets</span>
-                      </Link>
-
-                      <Link
-                        to="/kyc"
-                        onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-cp-text-secondary hover:text-cp-text-primary hover:bg-cp-card transition-colors"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <ShieldCheck className="w-4 h-4 text-cp-positive" />
-                          <span>KYC Verification</span>
-                        </div>
-                        <Badge variant="positive" size="sm" className="text-[9px] py-0">
-                          {user?.verificationTier || user?.kyc_tier || 'Tier 0'}
-                        </Badge>
-                      </Link>
-
-                      <Link
-                        to="/settings"
-                        onClick={() => setProfileDropdownOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-cp-text-secondary hover:text-cp-text-primary hover:bg-cp-card transition-colors"
-                      >
-                        <Settings className="w-4 h-4 text-cp-gold" />
-                        <span>Security & Settings</span>
-                      </Link>
-                    </div>
-
-                    <div className="p-1.5 border-t border-cp-border">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setProfileDropdownOpen(false)
-                          await logout()
-                          navigate('/login')
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-cp-negative hover:bg-cp-negative/10 transition-colors"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        <span>Sign Out</span>
-                      </button>
-                    </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Link to="/login">
+                    <Button variant="secondary" size="sm">
+                      Log In
+                    </Button>
+                  </Link>
+                  <Link to="/register">
+                    <Button variant="primary" size="sm">
+                      Sign Up
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
         </div>

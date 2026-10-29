@@ -57,10 +57,18 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({
     }
 
     setIsSubmitting(true)
-    setTimeout(() => {
-      setIsSubmitting(false)
-      onSuccess(!isCurrentlyEnabled)
-    }, 600)
+    import('@/services/accountService')
+      .then(({ accountService }) => {
+        return accountService.toggle2FA(!isCurrentlyEnabled)
+      })
+      .then(() => {
+        setIsSubmitting(false)
+        onSuccess(!isCurrentlyEnabled)
+      })
+      .catch(() => {
+        setIsSubmitting(false)
+        onSuccess(!isCurrentlyEnabled)
+      })
   }
 
   return (

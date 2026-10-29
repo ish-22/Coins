@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   Mail,
   Lock,
@@ -11,10 +11,9 @@ import {
   Info,
   AlertCircle,
   CheckCircle2,
-  KeyRound,
+  Clock,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/common/Card'
-import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
 import { Input } from '@/components/common/Input'
 import { Logo } from '@/components/common/Logo'
@@ -23,6 +22,8 @@ import { authService } from '@/services'
 
 export const Login: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
+  const sessionExpired = (location.state as any)?.sessionExpired
 
   // Form states
   const [email, setEmail] = useState('')
@@ -33,15 +34,6 @@ export const Login: React.FC = () => {
   // Validation & UI state
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [simulateError, setSimulateError] = useState(false)
-
-  // Fast demo credential auto-fill helper
-  const handleFillDemoCredentials = () => {
-    setEmail('demo.trader@coinplus.io')
-    setPassword('CoinPlus2026!#')
-    setErrors({})
-    setSimulateError(false)
-  }
 
   // Email format validation
   const validateEmail = (val: string): boolean => {
@@ -66,11 +58,6 @@ export const Login: React.FC = () => {
       newErrors.password = 'Password must be at least 6 characters.'
     }
 
-    // If simulated error toggle is on
-    if (simulateError) {
-      newErrors.general = 'Demonstration: Invalid email or password. Please verify credentials or click Auto-fill Demo.'
-    }
-
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       return
@@ -79,6 +66,8 @@ export const Login: React.FC = () => {
     setErrors({})
     setIsSubmitting(true)
 
+    const returnPath = (location.state as any)?.from?.pathname || '/dashboard'
+
     try {
       await authService.login({
         email: email.trim(),
@@ -86,15 +75,20 @@ export const Login: React.FC = () => {
         rememberMe,
       })
       setIsSubmitting(false)
-      navigate('/dashboard')
+      navigate(returnPath)
     } catch (err: any) {
       setIsSubmitting(false)
-      const serverMessage = err.response?.data?.message || err.message
+      const serverMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        (err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(' ') : null) ||
+        err.message
+
       if (err.response?.status === 422 || err.response?.status === 401) {
-        setErrors({ general: serverMessage || 'Invalid email or password.' })
+        setErrors({ general: serverMessage || 'Invalid email or password. Please verify your credentials.' })
       } else {
         // Fallback for offline demo mode
-        navigate('/dashboard')
+        navigate(returnPath)
       }
     }
   }
@@ -124,48 +118,18 @@ export const Login: React.FC = () => {
           </p>
         </div>
 
-        {/* Demo Mode Quick Access Banner */}
-        <div className="rounded-xl bg-gradient-to-r from-cp-card via-cp-elevated/70 to-cp-card border border-cp-gold/30 p-4 space-y-2.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-cp-gold flex items-center gap-1.5">
-              <KeyRound className="w-3.5 h-3.5" />
-              Quick Demo Access
-            </span>
-            <Badge variant="gold" size="sm">
-              Sandbox Mode
-            </Badge>
-          </div>
-          <p className="text-[11px] text-cp-text-muted leading-relaxed">
-            This is a frontend demonstration. Click below to prefill sample credentials with instant access:
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleFillDemoCredentials}
-              className="text-xs flex-1"
-            >
-              Auto-fill Demo Credentials
-            </Button>
-            <button
-              type="button"
-              onClick={() => setSimulateError(!simulateError)}
-              className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-colors ${
-                simulateError
-                  ? 'bg-cp-negative/20 text-cp-negative border-cp-negative/40'
-                  : 'bg-cp-elevated text-cp-text-muted border-cp-border hover:text-cp-text-primary'
-              }`}
-              title="Test simulated error handling"
-            >
-              {simulateError ? 'Error Active' : 'Test Error'}
-            </button>
-          </div>
-        </div>
-
         {/* Login Form Card */}
         <Card className="border-cp-border bg-cp-card shadow-2xl overflow-hidden">
           <CardContent className="p-6 sm:p-8 space-y-5">
+            {sessionExpired && (
+              <div className="p-3.5 rounded-xl bg-cp-gold/10 border border-cp-gold/30 text-xs text-cp-gold flex items-start gap-2.5 animate-fadeIn">
+                <Clock className="w-4 h-4 shrink-0 mt-0.5 text-cp-gold" />
+                <span className="leading-relaxed">
+                  <strong>Session Expired:</strong> Your trading session timed out due to inactivity. Please sign in again to resume your account.
+                </span>
+              </div>
+            )}
+
             {errors.general && (
               <div className="p-3.5 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative flex items-start gap-2.5 animate-fadeIn">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />

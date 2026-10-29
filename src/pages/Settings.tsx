@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ShieldCheck,
@@ -81,6 +81,30 @@ export const Settings: React.FC = () => {
   // Section 5: Active Sessions
   const [sessions, setSessions] = useState<ActiveSessionItem[]>(INITIAL_ACTIVE_SESSIONS)
 
+  // Load sessions from API
+  useEffect(() => {
+    import('@/services/accountService').then(({ accountService }) => {
+      accountService
+        .getSessions()
+        .then((data: any) => {
+          if (data && Array.isArray(data) && data.length > 0) {
+            setSessions(
+              data.map((s: any) => ({
+                id: s.id,
+                device: s.device,
+                browser: s.browser || s.device || 'Chrome / Browser',
+                ip: s.ip,
+                location: s.location,
+                isCurrent: !!s.isCurrent,
+                lastActive: s.lastActive,
+              }))
+            )
+          }
+        })
+        .catch(() => {})
+    })
+  }, [])
+
   // Section 6: Trusted Devices
   const [trustedDevices, setTrustedDevices] = useState<TrustedDeviceItem[]>(INITIAL_TRUSTED_DEVICES)
 
@@ -91,7 +115,9 @@ export const Settings: React.FC = () => {
   const [editingWhitelistItem, setEditingWhitelistItem] = useState<WhitelistAddressItem | null>(null)
 
   // Section 8 & 9: Security Preferences & Notifications
-  const [sessionTimeout, setSessionTimeout] = useState('30')
+  const [sessionTimeout, setSessionTimeout] = useState(() => {
+    return localStorage.getItem('cp_session_timeout_minutes') || '60'
+  })
   const [loginAlerts, setLoginAlerts] = useState(true)
   const [withdrawalAlerts, setWithdrawalAlerts] = useState(true)
   const [passwordChangeAlerts, setPasswordChangeAlerts] = useState(true)
@@ -126,7 +152,7 @@ export const Settings: React.FC = () => {
   }, [newPassword])
 
   // Handle Password Change Submit
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setPwError(null)
 
@@ -150,11 +176,20 @@ export const Settings: React.FC = () => {
       return
     }
 
-    // Success
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
-    triggerToast('Password updated successfully! (Demonstration)')
+    try {
+      const { accountService } = await import('@/services/accountService')
+      await accountService.changePassword({
+        current_password: currentPassword,
+        password: newPassword,
+      })
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      triggerToast('Password updated successfully!')
+    } catch (err: any) {
+      const serverMsg = err?.response?.data?.message || err?.message || 'Failed to update password.'
+      setPwError(serverMsg)
+    }
   }
 
   // Handle Revoke Session
@@ -861,14 +896,17 @@ export const Settings: React.FC = () => {
                 <select
                   value={sessionTimeout}
                   onChange={(e) => {
-                    setSessionTimeout(e.target.value)
-                    triggerToast(`Session timeout updated to ${e.target.value} minutes.`)
+                    const val = e.target.value
+                    setSessionTimeout(val)
+                    localStorage.setItem('cp_session_timeout_minutes', val)
+                    triggerToast(`Session timeout updated to ${val} minutes.`)
                   }}
                   className="w-full bg-cp-elevated border border-cp-border rounded-lg py-2.5 px-3 text-xs text-cp-text-primary focus:outline-none focus:border-cp-gold cursor-pointer"
                 >
-                  <option value="15">15 Minutes (Maximum Security)</option>
-                  <option value="30">30 Minutes (Recommended)</option>
-                  <option value="60">1 Hour</option>
+                  <option value="15">15 Minutes (High Security)</option>
+                  <option value="30">30 Minutes</option>
+                  <option value="60">1 Hour (Recommended)</option>
+                  <option value="120">2 Hours</option>
                   <option value="1440">24 Hours</option>
                 </select>
               </div>

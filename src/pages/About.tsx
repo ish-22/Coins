@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import {
   TrendingUp,
@@ -23,16 +23,59 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Ca
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
 import { Logo } from '@/components/common/Logo'
+import { apiClient } from '@/services/apiClient'
 import {
-  BRAND_VALUES,
-  PLATFORM_FEATURES,
-  DESIGN_PRINCIPLES,
-  ABOUT_FAQS,
+  BRAND_VALUES as DEFAULT_BRAND_VALUES,
+  PLATFORM_FEATURES as DEFAULT_PLATFORM_FEATURES,
+  DESIGN_PRINCIPLES as DEFAULT_DESIGN_PRINCIPLES,
+  ABOUT_FAQS as DEFAULT_ABOUT_FAQS,
+  PlatformFeature,
+  DesignPrinciple,
+  AboutFAQ,
 } from '@/mock/aboutData'
 import { ProductPreviewTabs } from '@/components/about'
 
 export const About: React.FC = () => {
+  const [brandValues, setBrandValues] = useState(DEFAULT_BRAND_VALUES)
+  const [platformFeatures, setPlatformFeatures] = useState<PlatformFeature[]>(DEFAULT_PLATFORM_FEATURES)
+  const [designPrinciples, setDesignPrinciples] = useState<DesignPrinciple[]>(DEFAULT_DESIGN_PRINCIPLES)
+  const [aboutFaqs, setAboutFaqs] = useState<AboutFAQ[]>(DEFAULT_ABOUT_FAQS)
+  const [isLoading, setIsLoading] = useState(false)
   const [expandedFaqIndex, setExpandedFaqIndex] = useState<number | null>(0)
+
+  useEffect(() => {
+    let isMounted = true
+    setIsLoading(true)
+
+    apiClient
+      .get('/about')
+      .then((res: any) => {
+        if (!isMounted || !res) return
+        const data = res.data || res
+        if (data.brand_values) {
+          setBrandValues(data.brand_values)
+        }
+        if (Array.isArray(data.features) && data.features.length > 0) {
+          setPlatformFeatures(data.features)
+        }
+        if (Array.isArray(data.principles) && data.principles.length > 0) {
+          setDesignPrinciples(data.principles)
+        }
+        if (Array.isArray(data.faqs) && data.faqs.length > 0) {
+          setAboutFaqs(data.faqs)
+        }
+      })
+      .catch((err: any) => {
+        console.warn('Could not load live /about from API, retaining seeded state', err)
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const toggleFaq = (idx: number) => {
     setExpandedFaqIndex((prev) => (prev === idx ? null : idx))
@@ -111,7 +154,7 @@ export const About: React.FC = () => {
         </h1>
 
         <p className="text-sm sm:text-base text-cp-text-secondary max-w-2xl mx-auto leading-relaxed">
-          {BRAND_VALUES.conceptDefinition}
+          {brandValues.conceptDefinition}
         </p>
 
         {/* CTA Buttons */}
@@ -160,7 +203,7 @@ export const About: React.FC = () => {
             Clarity, Precision, and Zero Visual Noise
           </h3>
           <p className="text-xs sm:text-sm text-cp-text-secondary leading-relaxed">
-            {BRAND_VALUES.mission}
+            {brandValues.mission}
           </p>
         </Card>
 
@@ -173,7 +216,7 @@ export const About: React.FC = () => {
             Universal Access to Institutional Order Books
           </h3>
           <p className="text-xs sm:text-sm text-cp-text-secondary leading-relaxed">
-            {BRAND_VALUES.vision}
+            {brandValues.vision}
           </p>
         </Card>
       </div>
@@ -191,7 +234,7 @@ export const About: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {PLATFORM_FEATURES.map((feature) => (
+          {platformFeatures.map((feature) => (
             <Card
               key={feature.id}
               className="p-6 border-cp-border bg-cp-card hover:border-cp-gold/50 transition-all duration-200 flex flex-col justify-between space-y-4 group"
@@ -254,7 +297,7 @@ export const About: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {DESIGN_PRINCIPLES.map((dp) => (
+          {designPrinciples.map((dp) => (
             <div
               key={dp.id}
               className="p-5 rounded-2xl bg-cp-card border border-cp-border space-y-2.5 hover:border-cp-gold/40 transition-colors"
@@ -299,7 +342,7 @@ export const About: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent className="p-4 sm:p-6 divide-y divide-cp-border/50">
-          {ABOUT_FAQS.map((faq, index) => {
+          {aboutFaqs.map((faq, index) => {
             const isExpanded = expandedFaqIndex === index
 
             return (

@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   Wallet,
   PlusCircle,
   AlertCircle,
   Info,
   CheckCircle2,
+  Lock,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/common/Button'
 import { TradingPairConfig } from '@/mock/tradingData'
 import { formatCurrency, formatCrypto } from '@/utils/formatters'
+import { useAuth } from '@/context/AuthContext'
 
 export interface OrderFormProps {
   pair: TradingPairConfig
@@ -35,6 +38,8 @@ export const OrderForm: React.FC<OrderFormProps> = ({
   availableCrypto,
   onReviewOrder,
 }) => {
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
   const [side, setSide] = useState<'buy' | 'sell'>('buy')
   const [orderType, setOrderType] = useState<'limit' | 'market' | 'stop_limit'>('limit')
   const [priceInput, setPriceInput] = useState<string>(pair.price.toString())
@@ -336,16 +341,38 @@ export const OrderForm: React.FC<OrderFormProps> = ({
           </div>
         )}
 
-        {/* Submit Review Button */}
-        <Button
-          type="submit"
-          variant={side === 'buy' ? 'success' : 'danger'}
-          size="lg"
-          fullWidth
-          className="text-xs uppercase tracking-wider font-bold py-3 mt-2"
-        >
-          {side === 'buy' ? `Review Buy ${pair.baseAsset}` : `Review Sell ${pair.baseAsset}`}
-        </Button>
+        {/* Submit Review Button or Guest Login Prompt */}
+        {isAuthenticated ? (
+          <Button
+            type="submit"
+            variant={side === 'buy' ? 'success' : 'danger'}
+            size="lg"
+            fullWidth
+            className="text-xs uppercase tracking-wider font-bold py-3 mt-2"
+          >
+            {side === 'buy' ? `Review Buy ${pair.baseAsset}` : `Review Sell ${pair.baseAsset}`}
+          </Button>
+        ) : (
+          <div className="space-y-2 mt-2">
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              fullWidth
+              onClick={() => navigate('/login', { state: { from: { pathname: '/trade' } } })}
+              className="text-xs uppercase tracking-wider font-bold py-3"
+              leftIcon={<Lock className="w-3.5 h-3.5" />}
+            >
+              Log In to Trade
+            </Button>
+            <div className="text-center text-[11px] text-cp-text-muted">
+              Don't have an account?{' '}
+              <Link to="/register" className="text-cp-gold hover:underline font-semibold">
+                Sign Up
+              </Link>
+            </div>
+          </div>
+        )}
       </form>
     </div>
   )
