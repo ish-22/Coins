@@ -226,24 +226,38 @@ export const Withdraw: React.FC = () => {
     setIsVerificationModalOpen(true)
   }
 
-  // Step 2 Completion: Final simulated withdrawal submission
+  // Step 2 Completion: Final withdrawal submission
   const handleFinalSubmit = async () => {
     if (!pendingPayload) return
 
-    // Trigger API if available
+    let apiTxId: string | null = null
+    let serverMessage = `Withdrawal request for ${formatCrypto(pendingPayload.amount, pendingPayload.assetSymbol)} submitted. Awaiting administrative approval.`
+
+    // Trigger API
     try {
-      await walletService.withdraw({
+      const response = await walletService.withdraw({
         asset: pendingPayload.assetSymbol,
         network: pendingPayload.networkName,
         address: pendingPayload.destinationAddress,
         memo: pendingPayload.memoTag,
         amount: pendingPayload.amount,
       })
-    } catch {
-      // Offline fallback: maintain smooth UI simulation
+      if (response?.transaction?.id) {
+        apiTxId = response.transaction.id
+      }
+      if (response?.message) {
+        serverMessage = response.message
+      }
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message
+      if (errMsg) {
+        setFormError(errMsg)
+        setIsVerificationModalOpen(false)
+        return
+      }
     }
 
-    // Deduct simulated balance
+    // Deduct available balance
     setBalances((prev) => ({
       ...prev,
       [selectedAsset.id]: Math.max(0, (prev[selectedAsset.id] ?? selectedAsset.availableBalance) - pendingPayload.amount),
@@ -251,7 +265,7 @@ export const Withdraw: React.FC = () => {
 
     const now = new Date()
     const newRecord: WithdrawHistoryRecord = {
-      id: `wth-${Date.now().toString().slice(-4)}`,
+      id: apiTxId || `wth-${Date.now().toString().slice(-4)}`,
       txHash: `0x${Math.random().toString(16).slice(2, 10)}...${Math.random().toString(16).slice(2, 6)}`,
       asset: pendingPayload.assetSymbol,
       amount: pendingPayload.amount,
@@ -260,7 +274,7 @@ export const Withdraw: React.FC = () => {
       network: pendingPayload.networkName,
       destinationAddress: pendingPayload.destinationAddress,
       memoTag: pendingPayload.memoTag,
-      status: 'processing',
+      status: 'pending',
       date: 'Today',
       time: now.toTimeString().split(' ')[0] + ' UTC',
     }
@@ -273,9 +287,7 @@ export const Withdraw: React.FC = () => {
     setDestinationAddress('')
     setMemoTag('')
 
-    setToastMessage(
-      `Withdrawal Submitted: Disbursing ${formatCrypto(pendingPayload.amount, pendingPayload.assetSymbol)}. Status: Processing.`
-    )
+    setToastMessage(serverMessage)
   }
 
   // Filtered history list

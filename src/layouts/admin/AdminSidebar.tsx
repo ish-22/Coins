@@ -12,7 +12,6 @@ import {
   Coins,
   FileText,
   Sliders,
-  ExternalLink,
   ShieldAlert,
 } from 'lucide-react'
 import { Logo } from '@/components/common/Logo'
@@ -163,18 +162,11 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ onItemClick }) => {
       </nav>
 
       {/* Back to Client Terminal shortcut */}
-      <div className="p-3 border-t border-cp-border bg-[#090e17] space-y-2">
+      <div className="p-3 border-t border-cp-border bg-[#090e17]">
         <div className="flex items-center gap-2 px-2 text-[10px] text-cp-gold font-medium">
           <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
           <span>Restricted Operator View</span>
         </div>
-        <Link
-          to="/dashboard"
-          className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-cp-text-muted hover:text-cp-text-primary hover:bg-cp-elevated border border-cp-border/50 transition-colors"
-        >
-          <span>Exit to Trader Terminal</span>
-          <ExternalLink className="w-3.5 h-3.5" />
-        </Link>
       </div>
     </aside>
   )

@@ -102,14 +102,28 @@ export const AdminAnnouncements: React.FC = () => {
     }
 
     if (editingId) {
-      setAnnouncements((prev) =>
-        prev.map((a) =>
-          a.id === editingId
-            ? { ...a, title: title.trim(), content: content.trim(), type, targetAudience, status, validUntil }
-            : a
+      try {
+        const response = await adminService.updateAnnouncement(editingId, {
+          title: title.trim(),
+          content: content.trim(),
+          type,
+          targetAudience,
+          status,
+          validUntil,
+        })
+
+        setAnnouncements((prev) =>
+          prev.map((a) =>
+            a.id === editingId
+              ? { ...a, title: title.trim(), content: content.trim(), type, targetAudience, status, validUntil }
+              : a
+          )
         )
-      )
-      setToastMessage(`Announcement "${title.trim()}" updated in the active view. Backend editing is not yet exposed in this API.`)
+        setToastMessage(response?.message || `Announcement "${title.trim()}" updated successfully in the database.`)
+      } catch (error: any) {
+        setFormError(error?.response?.data?.message || 'Failed to update announcement in the backend.')
+        return
+      }
     } else {
       try {
         const response = await adminService.createAnnouncement({

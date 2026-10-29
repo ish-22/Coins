@@ -650,11 +650,6 @@ export const Landing: React.FC = () => {
                   <span className="w-3 h-3 rounded-full bg-cp-gold/50" />
                   <span className="w-3 h-3 rounded-full bg-cp-positive/50" />
                 </div>
-                <div className="flex-1 text-center">
-                  <span className="text-[11px] font-mono text-cp-text-muted bg-cp-card border border-cp-border px-3 py-0.5 rounded-md">
-                    coinplus.demo/trade?pair=BTC/USDT
-                  </span>
-                </div>
               </div>
 
               {/* Content grid preview */}

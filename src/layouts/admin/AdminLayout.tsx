@@ -13,11 +13,36 @@ export const AdminLayout: React.FC = () => {
     setMobileMenuOpen(false)
   }, [location.pathname])
 
-  // Mock Authentication Guard: Check sessionStorage
-  const isAuth = sessionStorage.getItem('cp_admin_auth') === 'true'
+  // Authentication Guard: Check sessionStorage and localStorage
+  const checkAdminAuth = () => {
+    if (sessionStorage.getItem('cp_admin_auth') === 'true' || localStorage.getItem('cp_admin_auth') === 'true') {
+      return true
+    }
+    if (sessionStorage.getItem('cp_admin_token') || localStorage.getItem('cp_admin_token')) {
+      return true
+    }
+    const adminUserStr = sessionStorage.getItem('cp_admin_user') || localStorage.getItem('cp_admin_user')
+    if (adminUserStr) {
+      try {
+        const u = JSON.parse(adminUserStr)
+        if (u?.role === 'admin') return true
+      } catch {}
+    }
+    const userStr = localStorage.getItem('cp_user') || sessionStorage.getItem('cp_user')
+    if (userStr) {
+      try {
+        const u = JSON.parse(userStr)
+        if (u?.role === 'admin') return true
+      } catch {}
+    }
+    return false
+  }
+
+  const isAuth = checkAdminAuth()
   if (!isAuth) {
     return <Navigate to="/admin/login" replace />
   }
+
 
   return (
     <div className="min-h-screen flex flex-col bg-[#080b12] text-cp-text-primary selection:bg-cp-gold/30 selection:text-cp-gold">

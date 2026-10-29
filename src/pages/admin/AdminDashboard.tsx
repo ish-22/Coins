@@ -79,7 +79,7 @@ export const AdminDashboard: React.FC = () => {
           <CardContent className="p-5 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-cp-text-muted uppercase tracking-wider">
-                Simulated Users
+                Registered Accounts
               </span>
               <div className="p-2 rounded-xl bg-cp-elevated text-cp-gold border border-cp-border">
                 <Users className="w-4 h-4" />
@@ -236,32 +236,39 @@ export const AdminDashboard: React.FC = () => {
             </CardHeader>
 
             <CardContent className="p-0 divide-y divide-cp-border/60">
-              {auditLogs.slice(0, 4).map((log) => (
-                <div key={log.id} className="p-4 hover:bg-cp-elevated/30 transition-colors flex items-start justify-between gap-3 text-xs">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-cp-text-primary">{log.action}</span>
-                      <Badge
-                        variant={log.result === 'success' ? 'positive' : log.result === 'warning' ? 'gold' : 'negative'}
-                        size="sm"
-                        className="text-[9px] py-0"
-                      >
-                        {log.result.toUpperCase()}
-                      </Badge>
-                    </div>
-                    <p className="text-cp-text-secondary">{log.details}</p>
-                    <div className="flex items-center gap-2 text-[10px] text-cp-text-muted">
-                      <span>By: {log.adminName}</span>
-                      <span>•</span>
-                      <span>Target: {log.target}</span>
-                    </div>
-                  </div>
+              {auditLogs.slice(0, 4).map((log) => {
+                const result = (log?.result || 'success').toLowerCase()
+                const badgeVariant = result === 'success' ? 'positive' : result === 'warning' ? 'gold' : 'negative'
+                const timeStr = log?.timestamp ? String(log.timestamp).slice(11, 19) || String(log.timestamp) : 'Recent'
 
-                  <span className="text-[10px] text-cp-text-muted font-mono shrink-0">
-                    {log.timestamp.slice(11)}
-                  </span>
-                </div>
-              ))}
+                return (
+                  <div key={log.id || log.eventId || Math.random()} className="p-4 hover:bg-cp-elevated/30 transition-colors flex items-start justify-between gap-3 text-xs">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-cp-text-primary">{log.action || 'Administrative Event'}</span>
+                        <Badge
+                          variant={badgeVariant}
+                          size="sm"
+                          className="text-[9px] py-0"
+                        >
+                          {result.toUpperCase()}
+                        </Badge>
+                      </div>
+                      <p className="text-cp-text-secondary">{log.details || 'Event recorded.'}</p>
+                      <div className="flex items-center gap-2 text-[10px] text-cp-text-muted">
+                        <span>By: {log.adminName || log.adminEmail || 'Admin'}</span>
+                        <span>•</span>
+                        <span>Target: {log.target || 'System'}</span>
+                      </div>
+                    </div>
+
+                    <span className="text-[10px] text-cp-text-muted font-mono shrink-0">
+                      {timeStr}
+                    </span>
+                  </div>
+                )
+              })}
+
             </CardContent>
           </Card>
         </div>
