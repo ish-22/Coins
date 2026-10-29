@@ -37,13 +37,20 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error: AxiosError<{ message?: string; errors?: Record<string, string[]> }>) => {
     if (error.response?.status === 401) {
-      // Clear token if unauthorized on a protected route
+      // Clear token and user session if unauthorized
       const currentPath = window.location.pathname
       if (currentPath !== '/login' && currentPath !== '/register' && currentPath !== '/admin/login') {
         localStorage.removeItem('cp_token')
         sessionStorage.removeItem('cp_token')
+        localStorage.removeItem('cp_user')
+        sessionStorage.removeItem('cp_user')
+        localStorage.removeItem('cp_user_account_profile')
+        sessionStorage.removeItem('cp_user_account_profile')
         localStorage.removeItem('cp_admin_token')
         sessionStorage.removeItem('cp_admin_token')
+        localStorage.removeItem('cp_admin_user')
+        sessionStorage.removeItem('cp_admin_user')
+        window.dispatchEvent(new Event('cp_auth_changed'))
       }
     }
 

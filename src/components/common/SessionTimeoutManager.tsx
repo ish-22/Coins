@@ -21,15 +21,15 @@ export const SessionTimeoutManager: React.FC = () => {
   const lastActivityRef = useRef<number>(Date.now())
   const countdownIntervalRef = useRef<any>(null)
 
-  // Get configured session timeout (in minutes), defaulting to 60 mins (1 hour)
+  // Get configured session timeout (in minutes), defaulting to 120 mins (2 hours)
   const getTimeoutDurationMs = (): number => {
     try {
       const stored = localStorage.getItem('cp_session_timeout_minutes')
-      const mins = stored ? parseInt(stored, 10) : 60
+      const mins = stored ? parseInt(stored, 10) : 120
       // Guard against invalid values: minimum 1 min, maximum 1440 mins (24h)
-      return Math.max(1, Math.min(1440, isNaN(mins) ? 60 : mins)) * 60 * 1000
+      return Math.max(1, Math.min(1440, isNaN(mins) ? 120 : mins)) * 60 * 1000
     } catch {
-      return 60 * 60 * 1000
+      return 120 * 60 * 1000
     }
   }
 
@@ -37,6 +37,7 @@ export const SessionTimeoutManager: React.FC = () => {
   const handleTimeout = async () => {
     setShowWarning(false)
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
+    localStorage.removeItem('cp_last_activity_time')
     await logout()
     navigate('/login', {
       state: {
@@ -48,7 +49,13 @@ export const SessionTimeoutManager: React.FC = () => {
 
   // Extend the session
   const resetActivity = () => {
-    lastActivityRef.current = Date.now()
+    const now = Date.now()
+    lastActivityRef.current = now
+    try {
+      localStorage.setItem('cp_last_activity_time', now.toString())
+    } catch {
+      // ignore
+    }
     if (showWarning) {
       setShowWarning(false)
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
@@ -62,14 +69,40 @@ export const SessionTimeoutManager: React.FC = () => {
       return
     }
 
-    // Reset last activity to NOW whenever user is authenticated or logs in
-    lastActivityRef.current = Date.now()
+    // Check if session has already expired based on persisted last activity
+    const timeoutMs = getTimeoutDurationMs()
+    const storedLastActivity = localStorage.getItem('cp_last_activity_time')
+    const lastTime = storedLastActivity ? parseInt(storedLastActivity, 10) : null
+
+    if (lastTime && !isNaN(lastTime)) {
+      const elapsedSinceStored = Date.now() - lastTime
+      if (elapsedSinceStored >= timeoutMs) {
+        handleTimeout()
+        return
+      }
+      lastActivityRef.current = lastTime
+    } else {
+      const now = Date.now()
+      lastActivityRef.current = now
+      localStorage.setItem('cp_last_activity_time', now.toString())
+    }
 
     const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click']
+    let lastThrottledTime = Date.now()
     const onUserActivity = () => {
       // Don't auto-dismiss the warning modal by background micro-mouse movements, require explicit extend click
       if (!showWarning) {
-        lastActivityRef.current = Date.now()
+        const now = Date.now()
+        lastActivityRef.current = now
+        // Throttle writing to localStorage to once every 10 seconds
+        if (now - lastThrottledTime > 10000) {
+          lastThrottledTime = now
+          try {
+            localStorage.setItem('cp_last_activity_time', now.toString())
+          } catch {
+            // ignore
+          }
+        }
       }
     }
 

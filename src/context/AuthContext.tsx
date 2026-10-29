@@ -89,8 +89,16 @@ function normalizeUser(raw: any): AuthUser {
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem('cp_token') || sessionStorage.getItem('cp_token')
+  })
+  const isAuthenticated = !!token
+
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
+      const curToken = localStorage.getItem('cp_token') || sessionStorage.getItem('cp_token')
+      if (!curToken) return null
+
       const stored = authService.getStoredUser()
       if (stored) return normalizeUser(stored)
       const storedProfile = localStorage.getItem('cp_user_account_profile')
@@ -102,10 +110,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   })
 
   const [isLoading, setIsLoading] = useState(false)
-  const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem('cp_token') || sessionStorage.getItem('cp_token')
-  })
-  const isAuthenticated = !!token
 
   const refreshUser = useCallback(async () => {
     const curToken = localStorage.getItem('cp_token') || sessionStorage.getItem('cp_token')

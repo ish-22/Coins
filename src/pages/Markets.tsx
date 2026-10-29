@@ -69,16 +69,19 @@ export const Markets: React.FC = () => {
                 const matched = pairs.find(
                   (p) =>
                     p.baseAsset.toLowerCase() === item.symbol.toLowerCase() ||
+                    p.symbol.toLowerCase().replace(/[-/_]/g, '') === item.symbol.toLowerCase() + 'usdt' ||
                     p.symbol.toLowerCase().startsWith(item.symbol.toLowerCase())
                 )
                 if (matched) {
+                  const chg = typeof matched.change24h === 'number' ? matched.change24h : item.change24h
                   return {
                     ...item,
-                    price: matched.price,
-                    change24h: matched.change24h,
+                    priceUsd: matched.price,
+                    change24h: chg,
                     high24h: matched.high24h,
                     low24h: matched.low24h,
-                    volume24h: matched.volume24hUsdt,
+                    volume24hUsd: matched.volume24hUsdt,
+                    category: (chg > 0 ? 'gainers' : chg < 0 ? 'losers' : 'spot') as 'spot' | 'gainers' | 'losers',
                   }
                 }
                 return item
@@ -127,16 +130,19 @@ export const Markets: React.FC = () => {
               const matched = pairs.find(
                 (p) =>
                   p.baseAsset.toLowerCase() === item.symbol.toLowerCase() ||
+                  p.symbol.toLowerCase().replace(/[-/_]/g, '') === item.symbol.toLowerCase() + 'usdt' ||
                   p.symbol.toLowerCase().startsWith(item.symbol.toLowerCase())
               )
               if (matched) {
+                const chg = typeof matched.change24h === 'number' ? matched.change24h : item.change24h
                 return {
                   ...item,
-                  price: matched.price,
-                  change24h: matched.change24h,
+                  priceUsd: matched.price,
+                  change24h: chg,
                   high24h: matched.high24h,
                   low24h: matched.low24h,
-                  volume24h: matched.volume24hUsdt,
+                  volume24hUsd: matched.volume24hUsdt,
+                  category: (chg > 0 ? 'gainers' : chg < 0 ? 'losers' : 'spot') as 'spot' | 'gainers' | 'losers',
                 }
               }
               return item

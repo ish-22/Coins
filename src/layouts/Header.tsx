@@ -133,7 +133,50 @@ export const Header: React.FC = () => {
     }
   }, [isAuthenticated])
 
-  const filteredAssets = mockCryptoAssets.filter(
+  const [tickerAssets, setTickerAssets] = useState(mockCryptoAssets)
+
+  useEffect(() => {
+    let isMounted = true
+    import('@/services/marketService').then(({ marketService }) => {
+      const syncTickers = () => {
+        marketService
+          .getTickers()
+          .then((pairs) => {
+            if (isMounted && pairs && pairs.length > 0) {
+              setTickerAssets((prev) =>
+                prev.map((asset) => {
+                  const matched = pairs.find(
+                    (p) =>
+                      p.baseAsset.toLowerCase() === asset.symbol.toLowerCase() ||
+                      p.symbol.toLowerCase().replace(/[-/_]/g, '') === asset.symbol.toLowerCase() + 'usdt' ||
+                      p.symbol.toLowerCase().startsWith(asset.symbol.toLowerCase())
+                  )
+                  if (matched) {
+                    return {
+                      ...asset,
+                      priceUsd: matched.price,
+                      change24h: matched.change24h,
+                    }
+                  }
+                  return asset
+                })
+              )
+            }
+          })
+          .catch(() => {})
+      }
+
+      syncTickers()
+      const timer = setInterval(syncTickers, 10000)
+      return () => clearInterval(timer)
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const filteredAssets = tickerAssets.filter(
     (asset) =>
       asset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       asset.symbol.toLowerCase().includes(searchQuery.toLowerCase())
@@ -148,7 +191,7 @@ export const Header: React.FC = () => {
           <div className="flex items-center gap-6 overflow-hidden">
             <div className="flex items-center gap-2 font-mono text-[11px]">
               <span className="text-cp-text-muted">MARKETS 24H:</span>
-              {mockCryptoAssets.map((asset) => {
+              {tickerAssets.map((asset) => {
                 const isPos = asset.change24h >= 0
                 return (
                   <Link
@@ -258,7 +301,9 @@ export const Header: React.FC = () => {
                   aria-label="Notifications"
                 >
                   <Bell className="w-5 h-5" />
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-cp-gold ring-2 ring-cp-card animate-pulse" />
+                  {isAuthenticated && headerNotifications.length > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-cp-gold ring-2 ring-cp-card animate-pulse" />
+                  )}
                 </button>
 
                 {notificationsOpen && (
