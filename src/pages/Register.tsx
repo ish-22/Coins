@@ -10,37 +10,22 @@ import {
   ArrowRight,
   ShieldCheck,
   Sparkles,
-  Info,
   AlertCircle,
   CheckCircle2,
   Check,
   X,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/common/Card'
-import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
 import { Input } from '@/components/common/Input'
 import { Logo } from '@/components/common/Logo'
 import { Typography } from '@/components/common/Typography'
 import { authService } from '@/services'
 
-export const DEMO_COUNTRIES = [
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'US', name: 'United States' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'FR', name: 'France' },
-  { code: 'CH', name: 'Switzerland' },
-  { code: 'SG', name: 'Singapore' },
-  { code: 'AE', name: 'United Arab Emirates' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'AU', name: 'Australia' },
-  { code: 'JP', name: 'Japan' },
-  { code: 'NL', name: 'Netherlands' },
-  { code: 'IE', name: 'Ireland' },
-  { code: 'SE', name: 'Sweden' },
-  { code: 'ES', name: 'Spain' },
-  { code: 'IT', name: 'Italy' },
-]
+import { ALL_COUNTRIES } from '@/constants/countries'
+
+export const DEMO_COUNTRIES = ALL_COUNTRIES
+
 
 export const Register: React.FC = () => {
   const navigate = useNavigate()
@@ -98,16 +83,6 @@ export const Register: React.FC = () => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim())
   }
 
-  // Auto-fill demo credentials
-  const handleAutoFillDemo = () => {
-    setFullName('Alex Vance')
-    setEmail('alex.vance@coinplus.io')
-    setCountry('GB')
-    setPassword('CoinPlus2026!#')
-    setConfirmPassword('CoinPlus2026!#')
-    setAcceptTerms(true)
-    setErrors({})
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -211,31 +186,6 @@ export const Register: React.FC = () => {
           <p className="text-xs sm:text-sm text-cp-text-secondary max-w-sm mx-auto">
             Experience next-generation spot cryptocurrency trading in a secure simulation environment.
           </p>
-        </div>
-
-        {/* Demo Mode Quick Fill Banner */}
-        <div className="rounded-xl bg-gradient-to-r from-cp-card via-cp-elevated/70 to-cp-card border border-cp-gold/30 p-4 space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-cp-gold flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5" />
-              Instant Sandbox Access
-            </span>
-            <Badge variant="gold" size="sm">
-              Demonstration Mode
-            </Badge>
-          </div>
-          <p className="text-[11px] text-cp-text-muted leading-relaxed">
-            No real personal data or identity documents required. Use 1-click auto-fill to test the registration workflow:
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleAutoFillDemo}
-            className="text-xs w-full"
-          >
-            Auto-fill Demonstration Profile
-          </Button>
         </div>
 
         {/* Register Form Card */}

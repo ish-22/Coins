@@ -262,14 +262,6 @@ export const Login: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Responsible Demonstration Disclaimer */}
-        <div className="p-3.5 rounded-xl bg-cp-elevated/40 border border-cp-border text-center text-[11px] text-cp-text-muted space-y-1">
-          <p className="text-cp-text-secondary font-semibold">Educational Interface Concept</p>
-          <p>
-            CoinPlus does not collect real passwords or perform live authentication against remote servers.
-            Explore the trading interface freely with demonstration mock balances.
-          </p>
-        </div>
       </div>
     </div>
   )

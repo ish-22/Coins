@@ -31,7 +31,9 @@ const Compliance = lazy(() => import('@/pages/Compliance').then((m) => ({ defaul
 const Login = lazy(() => import('@/pages/Login').then((m) => ({ default: m.Login })))
 const Register = lazy(() => import('@/pages/Register').then((m) => ({ default: m.Register })))
 const ForgotPassword = lazy(() => import('@/pages/ForgotPassword').then((m) => ({ default: m.ForgotPassword })))
+const ResetPassword = lazy(() => import('@/pages/ResetPassword').then((m) => ({ default: m.ResetPassword })))
 const DesignSystemPreview = lazy(() => import('@/pages/DesignSystemPreview').then((m) => ({ default: m.DesignSystemPreview })))
+
 
 // Admin Pages (Lazy Loaded)
 const AdminLogin = lazy(() => import('@/pages/admin/AdminLogin').then((m) => ({ default: m.AdminLogin })))
@@ -62,6 +64,8 @@ export const AppRoutes: React.FC = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+
 
         {/* ── Standalone Admin Login (no admin layout) ── */}
         <Route path="/admin/login" element={<AdminLogin />} />

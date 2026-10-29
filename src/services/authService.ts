@@ -110,6 +110,17 @@ export const authService = {
     return res.data
   },
 
+  async resetPassword(data: {
+    token: string
+    email: string
+    password: string
+    password_confirmation: string
+  }) {
+    const res = await apiClient.post('/auth/reset-password', data)
+    return res.data
+  },
+
+
   getStoredUser() {
     const userStr = localStorage.getItem('cp_user') || sessionStorage.getItem('cp_user')
     if (!userStr) return null

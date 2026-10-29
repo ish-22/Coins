@@ -62,19 +62,10 @@ export const DEFAULT_USER_PROFILE: UserAccountProfile = {
   },
 }
 
-export const COUNTRY_OPTIONS = [
-  'United States',
-  'United Kingdom',
-  'Canada',
-  'Germany',
-  'France',
-  'Japan',
-  'Australia',
-  'Singapore',
-  'Switzerland',
-  'Netherlands',
-  'United Arab Emirates',
-]
+import { COUNTRY_NAMES } from '@/constants/countries'
+
+export const COUNTRY_OPTIONS = COUNTRY_NAMES
+
 
 export const LANGUAGE_OPTIONS = [
   'English (US)',
