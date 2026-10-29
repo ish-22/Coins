@@ -76,7 +76,7 @@ export const AdminOrders: React.FC = () => {
 
         <div className="flex items-center gap-2">
           <Badge variant="gold" size="sm">
-            Total Mock Orders: {orders.length}
+            Total Live Orders: {orders.length}
           </Badge>
         </div>
       </div>
@@ -330,9 +330,30 @@ export const AdminOrders: React.FC = () => {
 
             <div className="pt-2 flex items-center justify-between border-t border-cp-border text-xs text-cp-text-muted">
               <span>Placed: {selectedOrder.createdAt}</span>
-              <Button variant="outline" size="sm" onClick={() => setSelectedOrder(null)}>
-                Close
-              </Button>
+              <div className="flex items-center gap-2">
+                {selectedOrder.status === 'open' && (
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await adminService.cancelOrder(selectedOrder.id)
+                        setOrders((prev) =>
+                          prev.map((o) => (o.id === selectedOrder.id ? { ...o, status: 'cancelled' } : o))
+                        )
+                        setSelectedOrder((prev) => (prev ? { ...prev, status: 'cancelled' } : null))
+                      } catch (err: any) {
+                        alert(err?.response?.data?.message || 'Could not cancel order')
+                      }
+                    }}
+                  >
+                    Cancel Order
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => setSelectedOrder(null)}>
+                  Close
+                </Button>
+              </div>
             </div>
           </div>
         </div>

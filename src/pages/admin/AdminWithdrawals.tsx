@@ -80,7 +80,7 @@ export const AdminWithdrawals: React.FC = () => {
     setActionError(null)
   }
 
-  const handleConfirmAction = () => {
+  const handleConfirmAction = async () => {
     if (!actionReason.trim()) {
       setActionError('An explicit administrative note or justification is required.')
       return
@@ -88,43 +88,54 @@ export const AdminWithdrawals: React.FC = () => {
 
     if (!actionRecord || !actionDecision) return
 
-    const newStatus = actionDecision === 'approve' ? 'approved' : 'rejected'
-    const now = new Date().toISOString().replace('T', ' ').slice(0, 16)
-
-    setWithdrawals((prev) =>
-      prev.map((w) =>
-        w.id === actionRecord.id
-          ? {
-              ...w,
-              status: newStatus,
-              reviewedAt: now,
-              rejectionReason: actionDecision === 'reject' ? actionReason.trim() : undefined,
-            }
-          : w
+    try {
+      const response = await adminService.reviewWithdrawal(
+        actionRecord.id,
+        actionDecision,
+        actionReason.trim()
       )
-    )
 
-    if (selectedWithdrawal?.id === actionRecord.id) {
-      setSelectedWithdrawal((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: newStatus,
-              reviewedAt: now,
-              rejectionReason: actionDecision === 'reject' ? actionReason.trim() : undefined,
-            }
-          : null
+      const newStatus = actionDecision === 'approve' ? 'approved' : 'rejected'
+      const now = new Date().toISOString().replace('T', ' ').slice(0, 16)
+
+      setWithdrawals((prev) =>
+        prev.map((w) =>
+          w.id === actionRecord.id
+            ? {
+                ...w,
+                status: newStatus,
+                reviewedAt: now,
+                rejectionReason: actionDecision === 'reject' ? actionReason.trim() : undefined,
+              }
+            : w
+        )
       )
+
+      if (selectedWithdrawal?.id === actionRecord.id) {
+        setSelectedWithdrawal((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: newStatus,
+                reviewedAt: now,
+                rejectionReason: actionDecision === 'reject' ? actionReason.trim() : undefined,
+              }
+            : null
+        )
+      }
+
+      setToastMessage(
+        response?.message ||
+          `Withdrawal ${actionRecord.withdrawalRef} (${actionRecord.amount} ${actionRecord.asset}) ${actionDecision === 'approve' ? 'Approved' : 'Rejected'} successfully.`
+      )
+      setTimeout(() => setToastMessage(null), 4000)
+
+      setActionRecord(null)
+      setActionDecision(null)
+      setActionReason('')
+    } catch (err: any) {
+      setActionError(err?.response?.data?.message || 'Failed to submit withdrawal decision to the database.')
     }
-
-    setToastMessage(
-      `Withdrawal ${actionRecord.withdrawalRef} (${actionRecord.amount} ${actionRecord.asset}) ${actionDecision === 'approve' ? 'Approved' : 'Rejected'} (Simulated Authorization).`
-    )
-    setTimeout(() => setToastMessage(null), 4000)
-
-    setActionRecord(null)
-    setActionDecision(null)
-    setActionReason('')
   }
 
   return (

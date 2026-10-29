@@ -43,8 +43,14 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onToggleMobileMenu }) 
 
   const handleSignOut = () => {
     sessionStorage.removeItem('cp_admin_auth')
+    localStorage.removeItem('cp_admin_auth')
+    sessionStorage.removeItem('cp_admin_token')
+    localStorage.removeItem('cp_admin_token')
+    sessionStorage.removeItem('cp_admin_user')
+    localStorage.removeItem('cp_admin_user')
     navigate('/admin/login')
   }
+
 
   const mockAdminAlerts = [
     { id: '1', title: 'New KYC Tier 1 Submission', time: '10m ago', unread: true },

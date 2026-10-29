@@ -39,6 +39,42 @@ export const adminService = {
     return (res.data.users ?? []).map(normalizeAdminUser)
   },
 
+  async createUser(data: {
+    name: string
+    email: string
+    password?: string
+    role?: string
+    status?: string
+    kyc_tier?: string
+    country?: string
+    initial_balance_usd?: number
+  }) {
+    const res = await apiClient.post('/admin/users', data)
+    return res.data
+  },
+
+  async updateUser(
+    id: string | number,
+    data: {
+      name?: string
+      email?: string
+      password?: string
+      role?: string
+      status?: string
+      kyc_tier?: string
+      country?: string
+      balance_usd?: number
+    }
+  ) {
+    const res = await apiClient.put(`/admin/users/${id}`, data)
+    return res.data
+  },
+
+  async deleteUser(id: string | number) {
+    const res = await apiClient.delete(`/admin/users/${id}`)
+    return res.data
+  },
+
   async updateUserStatus(id: string | number, status: 'active' | 'suspended' | 'pending') {
     const res = await apiClient.put(`/admin/users/${id}/status`, { status })
     return res.data
@@ -67,24 +103,24 @@ export const adminService = {
     return res.data.withdrawals
   },
 
+  async reviewWithdrawal(id: string | number, action: 'approve' | 'reject', reason?: string) {
+    const res = await apiClient.post(`/admin/withdrawals/${id}/review`, { action, reason })
+    return res.data
+  },
+
   async getOrders(): Promise<AdminOrderRecord[]> {
     const res = await apiClient.get<{ orders: AdminOrderRecord[] }>('/admin/orders')
     return res.data.orders
   },
 
+  async cancelOrder(id: string) {
+    const res = await apiClient.delete(`/admin/orders/${id}`)
+    return res.data
+  },
+
   async getAnnouncements(): Promise<AdminAnnouncement[]> {
     const res = await apiClient.get<{ announcements: AdminAnnouncement[] }>('/announcements')
     return res.data.announcements
-  },
-
-  async getSupportTickets(): Promise<AdminSupportTicket[]> {
-    const res = await apiClient.get<{ tickets: AdminSupportTicket[] }>('/admin/support-tickets')
-    return res.data.tickets
-  },
-
-  async replySupportTicket(id: string | number, message: string) {
-    const res = await apiClient.post(`/admin/support-tickets/${id}/reply`, { message })
-    return res.data
   },
 
   async createAnnouncement(data: {
@@ -98,6 +134,21 @@ export const adminService = {
     return res.data
   },
 
+  async updateAnnouncement(
+    id: string | number,
+    data: {
+      title: string
+      content: string
+      type: string
+      targetAudience: string
+      status?: string
+      validUntil?: string
+    }
+  ) {
+    const res = await apiClient.put(`/admin/announcements/${id}`, data)
+    return res.data
+  },
+
   async deleteAnnouncement(id: string | number) {
     const res = await apiClient.delete(`/admin/announcements/${id}`)
     return res.data
@@ -108,16 +159,56 @@ export const adminService = {
     return res.data.assets
   },
 
+  async createAsset(data: {
+    symbol: string
+    name: string
+    price_usd: number
+    networks?: string[]
+    depositEnabled?: boolean
+    withdrawEnabled?: boolean
+    tradingEnabled?: boolean
+    minDeposit?: number
+    minWithdrawal?: number
+    withdrawalFee?: number
+  }) {
+    const res = await apiClient.post('/admin/assets', data)
+    return res.data
+  },
+
   async updateAsset(
     id: string,
     data: {
+      name?: string
+      price_usd?: number
       depositEnabled?: boolean
       withdrawEnabled?: boolean
       tradingEnabled?: boolean
       withdrawalFee?: number
+      minDeposit?: number
+      minWithdrawal?: number
     }
   ) {
     const res = await apiClient.put(`/admin/assets/${id}`, data)
+    return res.data
+  },
+
+  async deleteAsset(id: string) {
+    const res = await apiClient.delete(`/admin/assets/${id}`)
+    return res.data
+  },
+
+  async getSupportTickets(): Promise<AdminSupportTicket[]> {
+    const res = await apiClient.get<{ tickets: AdminSupportTicket[] }>('/admin/support-tickets')
+    return res.data.tickets
+  },
+
+  async replySupportTicket(id: string | number, message: string) {
+    const res = await apiClient.post(`/admin/support-tickets/${id}/reply`, { message })
+    return res.data
+  },
+
+  async updateTicketStatus(id: string | number, status: string) {
+    const res = await apiClient.put(`/admin/support-tickets/${id}/status`, { status })
     return res.data
   },
 

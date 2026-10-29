@@ -69,11 +69,22 @@ export const Login: React.FC = () => {
     const returnPath = (location.state as any)?.from?.pathname || '/dashboard'
 
     try {
-      await authService.login({
+      const res = await authService.login({
         email: email.trim(),
         password,
         rememberMe,
       })
+
+      // If logging in as an administrator, configure operator session and direct to /admin/dashboard
+      if (res.user?.role === 'admin' || res.role === 'admin') {
+        sessionStorage.setItem('cp_admin_auth', 'true')
+        sessionStorage.setItem('cp_admin_token', res.token)
+        sessionStorage.setItem('cp_admin_user', JSON.stringify(res.user))
+        setIsSubmitting(false)
+        navigate('/admin/dashboard')
+        return
+      }
+
       setIsSubmitting(false)
       navigate(returnPath)
     } catch (err: any) {

@@ -10,6 +10,9 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Plus,
+  Edit2,
+  Trash2,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
@@ -33,40 +36,137 @@ export const AdminUsers: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null)
   const [successToast, setSuccessToast] = useState<string | null>(null)
 
+  // Create / Edit User Modal State
+  const [userModalOpen, setUserModalOpen] = useState(false)
+  const [editingUserId, setEditingUserId] = useState<string | null>(null)
+  const [formName, setFormName] = useState('')
+  const [formEmail, setFormEmail] = useState('')
+  const [formPassword, setFormPassword] = useState('')
+  const [formRole, setFormRole] = useState('user')
+  const [formStatus, setFormStatus] = useState<'active' | 'suspended' | 'pending'>('active')
+  const [formKycTier, setFormKycTier] = useState('Tier 1 (Basic Identity)')
+  const [formCountry, setFormCountry] = useState('United States')
+  const [formBalance, setFormBalance] = useState('1000')
+  const [modalFormError, setModalFormError] = useState<string | null>(null)
+  const [modalSubmitting, setModalSubmitting] = useState(false)
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 6
 
+  const fetchUsers = async () => {
+    try {
+      setIsLoading(true)
+      setLoadError(null)
+      const liveUsers = await adminService.getUsers()
+      setUsers(liveUsers)
+    } catch (error: any) {
+      setLoadError(error?.response?.data?.message || 'Unable to load live customer records from the API.')
+      setUsers([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
-    let isMounted = true
-
-    const fetchUsers = async () => {
-      try {
-        setIsLoading(true)
-        setLoadError(null)
-        const liveUsers = await adminService.getUsers()
-        if (isMounted) {
-          setUsers(liveUsers)
-          setCurrentPage(1)
-        }
-      } catch (error: any) {
-        if (isMounted) {
-          setLoadError(error?.response?.data?.message || 'Unable to load live customer records from the API.')
-          setUsers([])
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
-      }
-    }
-
     fetchUsers()
-
-    return () => {
-      isMounted = false
-    }
   }, [])
+
+  const handleOpenCreateModal = () => {
+    setEditingUserId(null)
+    setFormName('')
+    setFormEmail('')
+    setFormPassword('')
+    setFormRole('user')
+    setFormStatus('active')
+    setFormKycTier('Tier 1 (Basic Identity)')
+    setFormCountry('United States')
+    setFormBalance('1000')
+    setModalFormError(null)
+    setUserModalOpen(true)
+  }
+
+  const handleOpenEditModal = (user: AdminUser) => {
+    setEditingUserId(user.id)
+    setFormName(user.name)
+    setFormEmail(user.email)
+    setFormPassword('')
+    setFormRole((user as any).role || 'user')
+    setFormStatus(user.status)
+    setFormKycTier(user.kycTier)
+    setFormCountry(user.country)
+    setFormBalance(String(user.balanceUsd))
+    setModalFormError(null)
+    setUserModalOpen(true)
+  }
+
+  const handleDeleteUser = async (user: AdminUser) => {
+    if (!window.confirm(`Are you sure you want to delete user account "${user.name}" (${user.email})?`)) {
+      return
+    }
+
+    try {
+      await adminService.deleteUser(user.id)
+      setUsers((prev) => prev.filter((u) => u.id !== user.id))
+      if (selectedUser?.id === user.id) setSelectedUser(null)
+      setSuccessToast(`User ${user.email} removed permanently.`)
+      setTimeout(() => setSuccessToast(null), 4000)
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Failed to delete user.')
+    }
+  }
+
+  const handleSaveUserForm = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!formName.trim() || !formEmail.trim()) {
+      setModalFormError('Name and email are required.')
+      return
+    }
+
+    if (!editingUserId && !formPassword.trim()) {
+      setModalFormError('A password is required when creating a new user.')
+      return
+    }
+
+    setModalSubmitting(true)
+    setModalFormError(null)
+
+    try {
+      if (editingUserId) {
+        await adminService.updateUser(editingUserId, {
+          name: formName.trim(),
+          email: formEmail.trim(),
+          password: formPassword.trim() || undefined,
+          role: formRole,
+          status: formStatus,
+          kyc_tier: formKycTier,
+          country: formCountry,
+          balance_usd: Number(formBalance) || 0,
+        })
+        setSuccessToast(`User ${formName.trim()} profile updated successfully.`)
+      } else {
+        await adminService.createUser({
+          name: formName.trim(),
+          email: formEmail.trim(),
+          password: formPassword.trim(),
+          role: formRole,
+          status: formStatus,
+          kyc_tier: formKycTier,
+          country: formCountry,
+          initial_balance_usd: Number(formBalance) || 0,
+        })
+        setSuccessToast(`New customer ${formName.trim()} created and assigned login credentials.`)
+      }
+
+      setUserModalOpen(false)
+      fetchUsers()
+      setTimeout(() => setSuccessToast(null), 4000)
+    } catch (err: any) {
+      setModalFormError(err?.response?.data?.message || 'Failed to save customer account to database.')
+    } finally {
+      setModalSubmitting(false)
+    }
+  }
 
   // Filtered users
   const filteredUsers = useMemo(() => {
@@ -148,6 +248,15 @@ export const AdminUsers: React.FC = () => {
           <Badge variant="gold" size="sm">
             Total Live Accounts: {users.length}
           </Badge>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleOpenCreateModal}
+            className="flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create User</span>
+          </Button>
         </div>
       </div>
 
@@ -325,18 +434,36 @@ export const AdminUsers: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setSelectedUser(user)}
-                          className="px-2.5 py-1 rounded-lg bg-cp-elevated hover:bg-cp-card border border-cp-border text-cp-text-secondary hover:text-cp-gold transition-colors inline-flex items-center gap-1"
+                          className="px-2 py-1 rounded-lg bg-cp-elevated hover:bg-cp-card border border-cp-border text-cp-text-secondary hover:text-cp-gold transition-colors inline-flex items-center gap-1"
                           title="View user details"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>Inspect</span>
                         </button>
 
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditModal(user)}
+                          className="p-1.5 rounded-lg bg-cp-elevated hover:bg-cp-card border border-cp-border text-cp-text-secondary hover:text-cp-text-primary transition-colors"
+                          title="Edit user profile"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteUser(user)}
+                          className="p-1.5 rounded-lg bg-cp-negative/10 hover:bg-cp-negative/20 border border-cp-negative/30 text-cp-negative transition-colors"
+                          title="Delete user"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
                         {user.status === 'suspended' ? (
                           <button
                             type="button"
                             onClick={() => handleOpenActionModal(user, 'activate')}
-                            className="px-2.5 py-1 rounded-lg bg-cp-positive/15 hover:bg-cp-positive/25 border border-cp-positive/30 text-cp-positive transition-colors font-medium"
+                            className="px-2.5 py-1 rounded-lg bg-cp-positive/15 hover:bg-cp-positive/25 border border-cp-positive/30 text-cp-positive transition-colors font-medium text-[11px]"
                           >
                             Reactivate
                           </button>
@@ -344,7 +471,7 @@ export const AdminUsers: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenActionModal(user, 'suspend')}
-                            className="px-2.5 py-1 rounded-lg bg-cp-negative/15 hover:bg-cp-negative/25 border border-cp-negative/30 text-cp-negative transition-colors font-medium"
+                            className="px-2.5 py-1 rounded-lg bg-cp-negative/15 hover:bg-cp-negative/25 border border-cp-negative/30 text-cp-negative transition-colors font-medium text-[11px]"
                           >
                             Suspend
                           </button>
@@ -570,6 +697,161 @@ export const AdminUsers: React.FC = () => {
                 {actionType === 'suspend' ? 'Confirm Suspension' : 'Confirm Reactivation'}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE / EDIT USER MODAL */}
+      {userModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/85 backdrop-blur-sm"
+            onClick={() => setUserModalOpen(false)}
+          />
+
+          <div className="relative w-full max-w-md bg-[#0c121c] border border-cp-border rounded-2xl shadow-2xl p-6 z-10 animate-fadeIn space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-cp-border pb-3">
+              <h3 className="text-base font-bold text-cp-text-primary">
+                {editingUserId ? 'Edit Customer Profile' : 'Create New Account'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setUserModalOpen(false)}
+                className="p-1 rounded-lg text-cp-text-muted hover:text-cp-text-primary"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {modalFormError && (
+              <div className="p-2.5 rounded-lg bg-cp-negative/15 border border-cp-negative/30 text-xs text-cp-negative">
+                {modalFormError}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveUserForm} className="space-y-3.5 text-xs">
+              <div>
+                <label className="text-cp-text-secondary font-medium block mb-1">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
+                  placeholder="e.g. John Doe"
+                  className="w-full bg-[#141d2b] border border-cp-border rounded-xl px-3 py-2 text-cp-text-primary focus:outline-none focus:border-cp-gold"
+                />
+              </div>
+
+              <div>
+                <label className="text-cp-text-secondary font-medium block mb-1">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={formEmail}
+                  onChange={(e) => setFormEmail(e.target.value)}
+                  placeholder="name@domain.com"
+                  className="w-full bg-[#141d2b] border border-cp-border rounded-xl px-3 py-2 text-cp-text-primary focus:outline-none focus:border-cp-gold"
+                />
+              </div>
+
+              <div>
+                <label className="text-cp-text-secondary font-medium block mb-1">
+                  {editingUserId ? 'New Password (Leave blank to keep current)' : 'Account Password *'}
+                </label>
+                <input
+                  type="password"
+                  value={formPassword}
+                  onChange={(e) => setFormPassword(e.target.value)}
+                  placeholder={editingUserId ? '••••••••' : 'Minimum 8 characters'}
+                  className="w-full bg-[#141d2b] border border-cp-border rounded-xl px-3 py-2 text-cp-text-primary focus:outline-none focus:border-cp-gold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-cp-text-secondary font-medium block mb-1">System Role</label>
+                  <select
+                    value={formRole}
+                    onChange={(e) => setFormRole(e.target.value)}
+                    className="w-full bg-[#141d2b] border border-cp-border rounded-xl px-2.5 py-2 text-cp-text-primary focus:outline-none"
+                  >
+                    <option value="user">User (Trader)</option>
+                    <option value="admin">Administrator</option>
+                    <option value="operator">Operator</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-cp-text-secondary font-medium block mb-1">Status</label>
+                  <select
+                    value={formStatus}
+                    onChange={(e) => setFormStatus(e.target.value as any)}
+                    className="w-full bg-[#141d2b] border border-cp-border rounded-xl px-2.5 py-2 text-cp-text-primary focus:outline-none"
+                  >
+                    <option value="active">Active</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="pending">Pending</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-cp-text-secondary font-medium block mb-1">KYC Tier</label>
+                  <select
+                    value={formKycTier}
+                    onChange={(e) => setFormKycTier(e.target.value)}
+                    className="w-full bg-[#141d2b] border border-cp-border rounded-xl px-2.5 py-2 text-cp-text-primary focus:outline-none"
+                  >
+                    <option value="Tier 0 (Unverified)">Tier 0 (Unverified)</option>
+                    <option value="Tier 1 (Basic Identity)">Tier 1 (Basic)</option>
+                    <option value="Tier 2 (Full KYC Verified)">Tier 2 (Full KYC)</option>
+                    <option value="Tier 3 (Institutional Corporate)">Tier 3 (Institutional)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-cp-text-secondary font-medium block mb-1">Balance (USDT)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formBalance}
+                    onChange={(e) => setFormBalance(e.target.value)}
+                    className="w-full bg-[#141d2b] border border-cp-border rounded-xl px-3 py-2 text-cp-text-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-cp-text-secondary font-medium block mb-1">Country</label>
+                <input
+                  type="text"
+                  value={formCountry}
+                  onChange={(e) => setFormCountry(e.target.value)}
+                  className="w-full bg-[#141d2b] border border-cp-border rounded-xl px-3 py-2 text-cp-text-primary focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-cp-border">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setUserModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={modalSubmitting}
+                >
+                  {modalSubmitting ? 'Saving...' : editingUserId ? 'Save Changes' : 'Create Account'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -1,90 +1,107 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  Lock,
   Mail,
-  KeyRound,
-  ShieldAlert,
-  ArrowRight,
+  Lock,
   Eye,
   EyeOff,
-  Sparkles,
-  Info,
+  ArrowRight,
+  ShieldAlert,
+  AlertCircle,
   ExternalLink,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/common/Card'
-import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
 import { Input } from '@/components/common/Input'
 import { Logo } from '@/components/common/Logo'
+import { Typography } from '@/components/common/Typography'
 import { authService } from '@/services'
 
 export const AdminLogin: React.FC = () => {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('operator@coinplus.io')
-  const [password, setPassword] = useState('SuperAdmin2026!#')
+
+  // Form states (empty by default, just like standard Login)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+
+  // Validation & UI state
+  const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSignIn = async (e: React.FormEvent) => {
+  // Email format validation
+  const validateEmail = (val: string): boolean => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim())
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim() || !password.trim()) {
-      setError('Please provide administrative email and credentials.')
+    const newErrors: typeof errors = {}
+
+    // Email check
+    if (!email.trim()) {
+      newErrors.email = 'Please enter your administrator email.'
+    } else if (!validateEmail(email)) {
+      newErrors.email = 'Please enter a valid email format (e.g. operator@coinplus.io).'
+    }
+
+    // Password check
+    if (!password) {
+      newErrors.password = 'Please enter your administrator password.'
+    } else if (password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters.'
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
       return
     }
 
-    setError(null)
+    setErrors({})
     setIsSubmitting(true)
+
     try {
-      await authService.adminLogin({
+      const res = await authService.adminLogin({
         email: email.trim(),
         password,
       })
+
+      if (rememberMe && res.token) {
+        localStorage.setItem('cp_admin_token', res.token)
+        localStorage.setItem('cp_admin_user', JSON.stringify(res.user))
+        localStorage.setItem('cp_admin_auth', 'true')
+      }
+
       setIsSubmitting(false)
       navigate('/admin/dashboard')
     } catch (err: any) {
       setIsSubmitting(false)
-      const msg = err.response?.data?.message || err.message
-      if (err.response?.status === 422 || err.response?.status === 403) {
-        setError(msg || 'Invalid administrative credentials or insufficient privileges.')
+      const serverMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        (err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(' ') : null) ||
+        err.message
+
+      if (err.response?.status === 422 || err.response?.status === 403 || err.response?.status === 401) {
+        setErrors({ general: serverMessage || 'Invalid administrative credentials or insufficient operator privileges.' })
       } else {
-        // Fallback demo mode if backend server offline
+        // Fallback for offline demo mode
         sessionStorage.setItem('cp_admin_auth', 'true')
         navigate('/admin/dashboard')
       }
     }
   }
 
-  const handleAutoFillDemo = async () => {
-    setEmail('operator@coinplus.io')
-    setPassword('SuperAdmin2026!#')
-    setError(null)
-    setIsSubmitting(true)
-    try {
-      await authService.adminLogin({
-        email: 'operator@coinplus.io',
-        password: 'SuperAdmin2026!#',
-      })
-      setIsSubmitting(false)
-      navigate('/admin/dashboard')
-    } catch {
-      setIsSubmitting(false)
-      sessionStorage.setItem('cp_admin_auth', 'true')
-      navigate('/admin/dashboard')
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-[#06090f] text-cp-text-primary flex flex-col justify-center items-center p-4 select-none relative overflow-hidden">
-      {/* Background radial glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-cp-gold/5 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="w-full max-w-md space-y-6 relative z-10">
-        {/* Header */}
+    <div className="min-h-[85vh] flex flex-col justify-center items-center py-10 px-4 animate-fadeIn">
+      <div className="w-full max-w-md space-y-6">
+        {/* Brand Header */}
         <div className="text-center space-y-3">
           <div className="flex justify-center mb-1">
-            <Logo size="lg" asLink={false} />
+            <Link to="/dashboard" className="transition-transform hover:scale-105">
+              <Logo size="lg" />
+            </Link>
           </div>
 
           <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-cp-negative/15 border border-cp-negative/30 text-cp-negative text-xs font-bold tracking-wider uppercase">
@@ -92,118 +109,152 @@ export const AdminLogin: React.FC = () => {
             <span>Restricted Operator Console</span>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-black text-cp-text-primary tracking-tight">
+          <Typography variant="h1" className="text-2xl sm:text-3xl font-extrabold text-cp-text-primary tracking-tight">
             Administrator Sign In
-          </h1>
+          </Typography>
 
-          <p className="text-xs text-cp-text-secondary max-w-xs mx-auto leading-relaxed">
-            Manage demonstration users, identity queues, deposit approvals, and platform parameters.
+          <p className="text-xs sm:text-sm text-cp-text-secondary max-w-xs mx-auto">
+            Authorized personnel only. Sign in with operator credentials to manage platform assets, users, and audit logs.
           </p>
         </div>
 
-        {/* Quick Demo Access Card */}
-        <div className="rounded-2xl bg-gradient-to-r from-cp-card via-cp-elevated/70 to-cp-card border border-cp-gold/30 p-4 space-y-2.5 shadow-lg">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-cp-gold flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" />
-              1-Click Reviewer Access
-            </span>
-            <Badge variant="gold" size="sm">
-              Sandbox Role: Super Admin
-            </Badge>
-          </div>
-          <p className="text-[11px] text-cp-text-muted leading-relaxed">
-            This is a frontend demonstration. Click below to bypass simulated credential entry and open the dashboard:
-          </p>
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={handleAutoFillDemo}
-            className="w-full text-xs"
-          >
-            Enter Admin Dashboard (Instant)
-            <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-          </Button>
-        </div>
-
-        {/* Form Card */}
-        <Card className="bg-[#0c121c] border-cp-border shadow-2xl overflow-hidden">
+        {/* Login Form Card - identical layout to standard Login */}
+        <Card className="border-cp-border bg-cp-card shadow-2xl overflow-hidden">
           <CardContent className="p-6 sm:p-8 space-y-5">
-            {error && (
-              <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative">
-                {error}
+            {errors.general && (
+              <div className="p-3.5 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative flex items-start gap-2.5 animate-fadeIn">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="leading-relaxed">{errors.general}</span>
               </div>
             )}
 
-            <form onSubmit={handleSignIn} className="space-y-4">
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
+              {/* Email Address */}
               <div>
                 <Input
                   label="Administrator Email *"
                   type="email"
+                  placeholder="e.g. operator@coinplus.io"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value)
+                    if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }))
+                  }}
                   leftIcon={<Mail className="w-4 h-4" />}
-                  placeholder="operator@coinplus.io"
+                  error={errors.email}
                   disabled={isSubmitting}
+                  autoComplete="email"
                 />
               </div>
 
+              {/* Password */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-cp-text-secondary block">
-                  Password *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="admin-password"
+                    className="text-xs font-semibold text-cp-text-secondary tracking-wide select-none"
+                  >
+                    Password *
+                  </label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs text-cp-gold hover:underline font-medium transition-colors"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+
                 <div className="relative flex items-center group">
-                  <div className="absolute left-3 text-cp-text-muted pointer-events-none">
+                  <div className="absolute left-3 text-cp-text-muted group-focus-within:text-cp-gold transition-colors duration-200 pointer-events-none">
                     <Lock className="w-4 h-4" />
                   </div>
+
                   <input
+                    id="admin-password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }))
+                    }}
                     disabled={isSubmitting}
-                    className="w-full bg-cp-card border border-cp-border rounded-lg text-sm text-cp-text-primary py-2.5 pl-9 pr-10 focus:outline-none focus:border-cp-gold"
+                    placeholder="Enter operator password"
+                    autoComplete="current-password"
+                    className={`w-full bg-cp-card border rounded-lg text-sm text-cp-text-primary placeholder:text-cp-text-muted/60 py-2.5 pl-9 pr-10 transition-all duration-200 focus:outline-none focus:bg-cp-elevated/40 ${
+                      errors.password
+                        ? 'border-cp-negative focus:border-cp-negative focus:ring-1 focus:ring-cp-negative/50'
+                        : 'border-cp-border hover:border-cp-border-light focus:border-cp-gold focus:ring-1 focus:ring-cp-gold/50'
+                    }`}
                   />
+
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 p-1 text-cp-text-muted hover:text-cp-text-primary"
+                    tabIndex={-1}
+                    className="absolute right-3 p-1 text-cp-text-muted hover:text-cp-text-primary transition-colors"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
+
+                {errors.password && (
+                  <p className="text-xs text-cp-negative flex items-center gap-1 pt-0.5">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>{errors.password}</span>
+                  </p>
+                )}
               </div>
 
+              {/* Remember Me row */}
+              <div className="flex items-center justify-between pt-1 text-xs">
+                <label className="flex items-center gap-2 cursor-pointer text-cp-text-secondary select-none">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border-cp-border bg-cp-card text-cp-gold focus:ring-cp-gold/40 focus:ring-offset-0 cursor-pointer accent-[#F0B93A]"
+                  />
+                  <span>Remember operator session</span>
+                </label>
+
+                <span className="text-[11px] text-cp-text-muted">Encrypted Session</span>
+              </div>
+
+              {/* Sign In CTA */}
               <Button
                 type="submit"
-                variant="secondary"
+                variant="primary"
                 size="lg"
                 disabled={isSubmitting}
                 className="w-full mt-2"
               >
-                {isSubmitting ? 'Authenticating...' : 'Sign In as Operator'}
+                {isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-cp-base border-t-transparent rounded-full animate-spin" />
+                    <span>Authenticating Operator...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2">
+                    <span>Sign In to Admin Console</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
+                )}
               </Button>
             </form>
 
-            <div className="pt-3 border-t border-cp-border/60 text-center">
+            {/* Back to Client Terminal shortcut */}
+            <div className="pt-4 border-t border-cp-border/80 text-center text-xs text-cp-text-secondary">
               <Link
-                to="/dashboard"
-                className="inline-flex items-center gap-1.5 text-xs text-cp-text-muted hover:text-cp-gold transition-colors"
+                to="/login"
+                className="inline-flex items-center gap-1.5 text-cp-gold hover:underline font-bold transition-colors"
               >
-                <span>Return to Customer Exchange</span>
+                <span>Return to Standard Sign In</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </Link>
             </div>
           </CardContent>
         </Card>
-
-        {/* Security Disclaimer Notice */}
-        <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border text-center text-[11px] text-cp-text-muted space-y-1">
-          <p className="text-cp-text-secondary font-semibold">Demonstration Interface Notice</p>
-          <p>
-            No real server credentials are saved or verified. Production admin permissions must be strictly enforced server-side.
-          </p>
-        </div>
       </div>
     </div>
   )
