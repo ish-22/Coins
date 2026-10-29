@@ -116,7 +116,7 @@ export const Settings: React.FC = () => {
 
   // Section 8 & 9: Security Preferences & Notifications
   const [sessionTimeout, setSessionTimeout] = useState(() => {
-    return localStorage.getItem('cp_session_timeout_minutes') || '60'
+    return localStorage.getItem('cp_session_timeout_minutes') || '120'
   })
   const [loginAlerts, setLoginAlerts] = useState(true)
   const [withdrawalAlerts, setWithdrawalAlerts] = useState(true)
@@ -905,8 +905,8 @@ export const Settings: React.FC = () => {
                 >
                   <option value="15">15 Minutes (High Security)</option>
                   <option value="30">30 Minutes</option>
-                  <option value="60">1 Hour (Recommended)</option>
-                  <option value="120">2 Hours</option>
+                  <option value="60">1 Hour</option>
+                  <option value="120">2 Hours (Recommended)</option>
                   <option value="1440">24 Hours</option>
                 </select>
               </div>
