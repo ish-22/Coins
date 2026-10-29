@@ -46,6 +46,8 @@ import {
   AdminAuditLogs,
 } from '@/pages/admin'
 
+import { ProtectedRoute } from '@/routes/ProtectedRoute'
+
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
@@ -76,27 +78,104 @@ export const AppRoutes: React.FC = () => {
 
       {/* ── Customer App shell routes (sidebar + header layout) ── */}
       <Route path="/" element={<MainLayout />}>
-        {/* Core & Trading Routes */}
-        <Route path="dashboard" element={<Dashboard />} />
+        {/* Core & Trading Routes (Publicly previewable vs Protected) */}
+        <Route
+          path="dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
         <Route path="markets" element={<Markets />} />
         <Route path="trade" element={<Trade />} />
-        <Route path="watchlist" element={<Watchlist />} />
+        <Route
+          path="watchlist"
+          element={
+            <ProtectedRoute>
+              <Watchlist />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Finance & Wallet Routes */}
-        <Route path="wallet" element={<Assets />} />
-        <Route path="assets" element={<Assets />} />
+        {/* Finance & Wallet Routes (Protected) */}
+        <Route
+          path="wallet"
+          element={
+            <ProtectedRoute>
+              <Assets />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="assets"
+          element={
+            <ProtectedRoute>
+              <Assets />
+            </ProtectedRoute>
+          }
+        />
         <Route path="earn" element={<Navigate to="/wallet" replace />} />
-        <Route path="orders" element={<Orders />} />
-        <Route path="deposit" element={<Deposit />} />
-        <Route path="withdraw" element={<Withdraw />} />
+        <Route
+          path="orders"
+          element={
+            <ProtectedRoute>
+              <Orders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="deposit"
+          element={
+            <ProtectedRoute>
+              <Deposit />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="withdraw"
+          element={
+            <ProtectedRoute>
+              <Withdraw />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Account & Security Routes */}
-        <Route path="account" element={<Account />} />
-        <Route path="kyc" element={<KYC />} />
-        <Route path="settings" element={<Settings />} />
+        {/* Account & Security Routes (Protected) */}
+        <Route
+          path="account"
+          element={
+            <ProtectedRoute>
+              <Account />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="kyc"
+          element={
+            <ProtectedRoute>
+              <KYC />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
 
-        {/* Support & System Routes */}
-        <Route path="notifications" element={<Notifications />} />
+        {/* Support & System Routes (Public) */}
+        <Route
+          path="notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
         <Route path="support" element={<Support />} />
         <Route path="help" element={<Help />} />
         <Route path="fees" element={<Fees />} />
@@ -112,7 +191,7 @@ export const AppRoutes: React.FC = () => {
         <Route path="design-system" element={<DesignSystemPreview />} />
 
         {/* Catch-all */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   )

@@ -102,7 +102,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   })
 
   const [isLoading, setIsLoading] = useState(false)
-  const token = localStorage.getItem('cp_token') || sessionStorage.getItem('cp_token')
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem('cp_token') || sessionStorage.getItem('cp_token')
+  })
   const isAuthenticated = !!token
 
   const refreshUser = useCallback(async () => {
@@ -138,6 +140,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Listen to cross-tab or custom login/register events
   useEffect(() => {
     const handleStorageChange = () => {
+      const curToken = localStorage.getItem('cp_token') || sessionStorage.getItem('cp_token')
+      setToken(curToken)
+
       const stored = authService.getStoredUser()
       if (stored) {
         setUser(normalizeUser(stored))
@@ -176,6 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     await authService.logout()
+    setToken(null)
     setUser(null)
     localStorage.removeItem('cp_user_account_profile')
     window.dispatchEvent(new Event('cp_auth_changed'))

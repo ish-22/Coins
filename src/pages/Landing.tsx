@@ -811,9 +811,8 @@ export const Landing: React.FC = () => {
               return (
                 <div
                   key={i}
-                  className={`rounded-xl border transition-all duration-200 overflow-hidden ${
-                    isOpen ? 'bg-cp-card border-cp-gold/40' : 'bg-cp-card border-cp-border hover:border-cp-border-light'
-                  }`}
+                  className={`rounded-xl border transition-all duration-200 overflow-hidden ${isOpen ? 'bg-cp-card border-cp-gold/40' : 'bg-cp-card border-cp-border hover:border-cp-border-light'
+                    }`}
                 >
                   <button
                     type="button"

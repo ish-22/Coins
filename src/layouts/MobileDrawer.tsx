@@ -19,7 +19,7 @@ import { SIDEBAR_NAV_ITEMS, CATEGORY_LABELS } from '@/routes/navItems'
 
 export const MobileDrawer: React.FC = () => {
   const { isMobileDrawerOpen, closeMobileDrawer } = useLayout()
-  const { user, logout } = useAuth()
+  const { user, isAuthenticated, logout } = useAuth()
   const navigate = useNavigate()
 
   if (!isMobileDrawerOpen) return null
@@ -56,59 +56,80 @@ export const MobileDrawer: React.FC = () => {
           </button>
         </div>
 
-        {/* User Profile Card */}
+        {/* User Profile Card or Guest CTAs */}
         <div className="p-4 border-b border-cp-border bg-cp-elevated/40">
-          <NavLink
-            to="/account"
-            onClick={closeMobileDrawer}
-            className="flex items-center gap-3 hover:opacity-90 transition-opacity"
-          >
-            <div className="relative">
-              <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-bold text-sm shadow-gold-sm">
-                {user?.avatarInitials || user?.avatar_initials || 'CP'}
-              </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-cp-positive border-2 border-cp-card rounded-full" />
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-cp-text-primary truncate">
-                  {user?.displayName || user?.name || user?.fullName || 'User'}
-                </span>
-                <Badge variant="gold" size="sm" className="px-1 py-0 text-[9px]">
-                  {user?.vipLevel || user?.vip_level || 'VIP 1'}
-                </Badge>
-              </div>
-              <span className="text-xs text-cp-text-muted truncate block">
-                {user?.email || 'user@coinplus.io'}
-              </span>
-            </div>
-            <ChevronRight className="w-4 h-4 text-cp-text-muted" />
-          </NavLink>
-
-          {/* Quick Action Buttons */}
-          <div className="grid grid-cols-2 gap-2.5 mt-3.5">
-            <NavLink to="/deposit" onClick={closeMobileDrawer} className="w-full">
-              <Button
-                variant="primary"
-                size="sm"
-                fullWidth
-                leftIcon={<ArrowDownToLine className="w-3.5 h-3.5" />}
+          {isAuthenticated ? (
+            <>
+              <NavLink
+                to="/account"
+                onClick={closeMobileDrawer}
+                className="flex items-center gap-3 hover:opacity-90 transition-opacity"
               >
-                Deposit
-              </Button>
-            </NavLink>
-            <NavLink to="/withdraw" onClick={closeMobileDrawer} className="w-full">
-              <Button
-                variant="secondary"
-                size="sm"
-                fullWidth
-                leftIcon={<ArrowUpFromLine className="w-3.5 h-3.5" />}
-              >
-                Withdraw
-              </Button>
-            </NavLink>
-          </div>
+                <div className="relative">
+                  <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-bold text-sm shadow-gold-sm">
+                    {user?.avatarInitials || user?.avatar_initials || 'CP'}
+                  </div>
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-cp-positive border-2 border-cp-card rounded-full" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-bold text-cp-text-primary truncate">
+                      {user?.displayName || user?.name || user?.fullName || 'User'}
+                    </span>
+                    <Badge variant="gold" size="sm" className="px-1 py-0 text-[9px]">
+                      {user?.vipLevel || user?.vip_level || 'VIP 1'}
+                    </Badge>
+                  </div>
+                  <span className="text-xs text-cp-text-muted truncate block">
+                    {user?.email || 'user@coinplus.io'}
+                  </span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-cp-text-muted" />
+              </NavLink>
+
+              {/* Quick Action Buttons */}
+              <div className="grid grid-cols-2 gap-2.5 mt-3.5">
+                <NavLink to="/deposit" onClick={closeMobileDrawer} className="w-full">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    fullWidth
+                    leftIcon={<ArrowDownToLine className="w-3.5 h-3.5" />}
+                  >
+                    Deposit
+                  </Button>
+                </NavLink>
+                <NavLink to="/withdraw" onClick={closeMobileDrawer} className="w-full">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    fullWidth
+                    leftIcon={<ArrowUpFromLine className="w-3.5 h-3.5" />}
+                  >
+                    Withdraw
+                  </Button>
+                </NavLink>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-3">
+              <div className="text-sm font-bold text-cp-text-primary">Welcome to CoinPlus</div>
+              <p className="text-xs text-cp-text-muted">Sign in to trade, deposit funds, and manage your wallet.</p>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <NavLink to="/login" onClick={closeMobileDrawer} className="w-full">
+                  <Button variant="secondary" size="sm" fullWidth>
+                    Log In
+                  </Button>
+                </NavLink>
+                <NavLink to="/register" onClick={closeMobileDrawer} className="w-full">
+                  <Button variant="primary" size="sm" fullWidth>
+                    Sign Up
+                  </Button>
+                </NavLink>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Scrollable Navigation Items */}
@@ -183,18 +204,20 @@ export const MobileDrawer: React.FC = () => {
             </span>
           </div>
 
-          <button
-            type="button"
-            onClick={async () => {
-              closeMobileDrawer()
-              await logout()
-              navigate('/login')
-            }}
-            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-cp-negative hover:bg-cp-negative/10 transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
-          </button>
+          {isAuthenticated && (
+            <button
+              type="button"
+              onClick={async () => {
+                closeMobileDrawer()
+                await logout()
+                navigate('/')
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-cp-negative hover:bg-cp-negative/10 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

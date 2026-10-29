@@ -19,7 +19,7 @@ export interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
   const { isSidebarCollapsed, toggleSidebar } = useLayout()
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
 
   // Group items by category
   const categories: Array<'core' | 'finance' | 'account' | 'support' | 'dev'> = [
@@ -154,53 +154,91 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         })}
       </div>
 
-      {/* Sidebar Footer: User Account Snapshot */}
+      {/* Sidebar Footer: User Account Snapshot or Guest CTAs */}
       <div className="p-3 border-t border-cp-border bg-cp-card/80">
-        {!isSidebarCollapsed ? (
-          <div className="flex items-center justify-between p-2 rounded-xl bg-cp-elevated border border-cp-border">
-            <NavLink to="/account" className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-90">
-              <div className="relative">
+        {isAuthenticated ? (
+          !isSidebarCollapsed ? (
+            <div className="flex items-center justify-between p-2 rounded-xl bg-cp-elevated border border-cp-border">
+              <NavLink to="/account" className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-90">
+                <div className="relative">
+                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-bold text-xs">
+                    {user?.avatarInitials || user?.avatar_initials || 'CP'}
+                  </div>
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-cp-positive border-2 border-cp-elevated rounded-full" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-cp-text-primary truncate">
+                      {user?.displayName || user?.name || user?.fullName || 'User'}
+                    </span>
+                    <Badge variant="gold" size="sm" className="px-1 py-0 text-[9px]">
+                      {user?.vipLevel || user?.vip_level || 'VIP 1'}
+                    </Badge>
+                  </div>
+                  <span className="text-[11px] text-cp-text-muted truncate block">
+                    {user?.email || 'user@coinplus.io'}
+                  </span>
+                </div>
+              </NavLink>
+
+              <NavLink
+                to="/settings"
+                className="p-1.5 text-cp-text-muted hover:text-cp-gold hover:bg-cp-card rounded-lg transition-colors ml-1"
+                title="Security & Settings"
+              >
+                <LogOut className="w-4 h-4" />
+              </NavLink>
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <NavLink to="/account" className="relative group">
                 <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-bold text-xs">
                   {user?.avatarInitials || user?.avatar_initials || 'CP'}
                 </div>
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-cp-positive border-2 border-cp-elevated rounded-full" />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-cp-text-primary truncate">
-                    {user?.displayName || user?.name || user?.fullName || 'User'}
-                  </span>
-                  <Badge variant="gold" size="sm" className="px-1 py-0 text-[9px]">
-                    {user?.vipLevel || user?.vip_level || 'VIP 1'}
-                  </Badge>
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-cp-positive border-2 border-cp-card rounded-full" />
+                <div className="absolute left-full ml-3 px-3 py-1.5 bg-cp-elevated text-cp-text-primary border border-cp-border rounded-lg text-xs font-semibold shadow-card whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
+                  {user?.displayName || user?.name || user?.fullName || 'User'} ({user?.vipLevel || user?.vip_level || 'VIP 1'})
                 </div>
-                <span className="text-[11px] text-cp-text-muted truncate block">
-                  {user?.email || 'user@coinplus.io'}
-                </span>
-              </div>
-            </NavLink>
-
-            <NavLink
-              to="/settings"
-              className="p-1.5 text-cp-text-muted hover:text-cp-gold hover:bg-cp-card rounded-lg transition-colors ml-1"
-              title="Security & Settings"
-            >
-              <LogOut className="w-4 h-4" />
-            </NavLink>
-          </div>
+              </NavLink>
+            </div>
+          )
         ) : (
-          <div className="flex justify-center">
-            <NavLink to="/account" className="relative group">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-cp-gold to-cp-gold/40 flex items-center justify-center text-cp-bg font-bold text-xs">
-                {user?.avatarInitials || user?.avatar_initials || 'CP'}
+          !isSidebarCollapsed ? (
+            <div className="p-2.5 rounded-xl bg-cp-elevated border border-cp-border space-y-2">
+              <div className="text-xs text-cp-text-muted">
+                Experience full trading, wallet & order history features.
               </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-cp-positive border-2 border-cp-card rounded-full" />
-              <div className="absolute left-full ml-3 px-3 py-1.5 bg-cp-elevated text-cp-text-primary border border-cp-border rounded-lg text-xs font-semibold shadow-card whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
-                {user?.displayName || user?.name || user?.fullName || 'User'} ({user?.vipLevel || user?.vip_level || 'VIP 1'})
+              <div className="flex items-center gap-2">
+                <NavLink to="/login" className="flex-1">
+                  <button
+                    type="button"
+                    className="w-full py-1.5 px-2 text-xs font-semibold rounded-lg border border-cp-border text-cp-text-primary hover:text-cp-gold hover:border-cp-gold/40 transition-colors"
+                  >
+                    Log In
+                  </button>
+                </NavLink>
+                <NavLink to="/register" className="flex-1">
+                  <button
+                    type="button"
+                    className="w-full py-1.5 px-2 text-xs font-bold rounded-lg bg-gold-gradient text-cp-bg hover:opacity-95 shadow-gold-sm transition-opacity"
+                  >
+                    Sign Up
+                  </button>
+                </NavLink>
               </div>
-            </NavLink>
-          </div>
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <NavLink
+                to="/login"
+                className="w-9 h-9 rounded-xl bg-gold-gradient text-cp-bg flex items-center justify-center font-bold text-xs hover:scale-105 transition-transform"
+                title="Log In / Sign Up"
+              >
+                In
+              </NavLink>
+            </div>
+          )
         )}
       </div>
     </aside>

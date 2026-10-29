@@ -116,31 +116,62 @@ export const Contact: React.FC = () => {
       return
     }
 
-    // Process simulated submission
     setIsSubmitting(true)
-    setTimeout(() => {
-      setIsSubmitting(false)
-      const selectedCategoryMeta = INQUIRY_CATEGORIES.find((c) => c.id === category)
-      const newRecord: SubmittedContactRecord = {
-        referenceId: `CP-INQ-${Math.floor(10000 + Math.random() * 90000)}`,
-        name: name.trim(),
-        email: email.trim(),
-        category,
-        categoryLabel: selectedCategoryMeta?.label || 'General Inquiry',
-        subject: subject.trim(),
-        message: message.trim(),
-        timestamp: new Date().toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      }
-
-      setSubmittedRecord(newRecord)
-      window.scrollTo({ top: 200, behavior: 'smooth' })
-    }, 700)
+    import('@/services/apiClient')
+      .then(({ apiClient }) => {
+        return apiClient.post('/support/contact', {
+          name: name.trim(),
+          email: email.trim(),
+          category,
+          subject: subject.trim(),
+          message: message.trim(),
+        })
+      })
+      .then((res) => {
+        setIsSubmitting(false)
+        const selectedCategoryMeta = INQUIRY_CATEGORIES.find((c) => c.id === category)
+        const refId = res.data?.referenceId || `CP-INQ-${Math.floor(10000 + Math.random() * 90000)}`
+        const newRecord: SubmittedContactRecord = {
+          referenceId: refId,
+          name: name.trim(),
+          email: email.trim(),
+          category,
+          categoryLabel: selectedCategoryMeta?.label || 'General Inquiry',
+          subject: subject.trim(),
+          message: message.trim(),
+          timestamp: new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+        }
+        setSubmittedRecord(newRecord)
+        window.scrollTo({ top: 200, behavior: 'smooth' })
+      })
+      .catch(() => {
+        setIsSubmitting(false)
+        const selectedCategoryMeta = INQUIRY_CATEGORIES.find((c) => c.id === category)
+        const newRecord: SubmittedContactRecord = {
+          referenceId: `CP-INQ-${Math.floor(10000 + Math.random() * 90000)}`,
+          name: name.trim(),
+          email: email.trim(),
+          category,
+          categoryLabel: selectedCategoryMeta?.label || 'General Inquiry',
+          subject: subject.trim(),
+          message: message.trim(),
+          timestamp: new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+        }
+        setSubmittedRecord(newRecord)
+        window.scrollTo({ top: 200, behavior: 'smooth' })
+      })
   }
 
   // Reset form to send another inquiry
