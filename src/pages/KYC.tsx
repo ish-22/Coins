@@ -36,6 +36,7 @@ import {
 import { COUNTRY_OPTIONS } from '@/mock/accountData'
 import { MockDocumentUploader, StatusBanner } from '@/components/kyc'
 import { useAuth } from '@/context/AuthContext'
+import apiClient from '@/services/apiClient'
 
 export const KYC: React.FC = () => {
   const { user } = useAuth()
@@ -147,27 +148,25 @@ export const KYC: React.FC = () => {
   // Fetch user KYC verification status on mount from backend
   useEffect(() => {
     if (!user) return
-    import('@/services/apiClient').then(({ apiClient }) => {
-      apiClient
-        .get('/kyc/status')
-        .then((res) => {
-          const tier = res.data?.currentTier || user.kyc_tier || ''
-          const subs = res.data?.submissions || []
-          setSubmissions(subs)
-          if (tier.includes('Verified') || tier.includes('Tier 2')) {
-            setStatus('approved')
-          } else if (subs.some((s: any) => s.status === 'in_review' || s.status === 'pending') || tier.includes('In Review')) {
-            setStatus('pending_review')
-          } else if (tier.includes('Tier 1')) {
-            setStatus('approved')
-          }
-        })
-        .catch(() => {
-          if (user.kyc_tier?.includes('Verified') || user.kyc_tier?.includes('Tier 2')) {
-            setStatus('approved')
-          }
-        })
-    })
+    apiClient
+      .get('/kyc/status')
+      .then((res) => {
+        const tier = res.data?.currentTier || user.kyc_tier || ''
+        const subs = res.data?.submissions || []
+        setSubmissions(subs)
+        if (tier.includes('Verified') || tier.includes('Tier 2')) {
+          setStatus('approved')
+        } else if (subs.some((s: any) => s.status === 'in_review' || s.status === 'pending') || tier.includes('In Review')) {
+          setStatus('pending_review')
+        } else if (tier.includes('Tier 1')) {
+          setStatus('approved')
+        }
+      })
+      .catch(() => {
+        if (user.kyc_tier?.includes('Verified') || user.kyc_tier?.includes('Tier 2')) {
+          setStatus('approved')
+        }
+      })
   }, [user])
 
   // Submit for Review
@@ -179,19 +178,17 @@ export const KYC: React.FC = () => {
     }
 
     setIsSubmitting(true)
-    import('@/services/apiClient')
-      .then(({ apiClient }) => {
-        return apiClient.post('/kyc/tier2', {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          country: formData.country,
-          addressLine1: formData.streetAddress,
-          city: formData.city,
-          postalCode: formData.postalCode,
-          documentType: formData.docType,
-          documentNumber: formData.docNumber,
-          proofOfAddressType: formData.addressDocType,
-        })
+    apiClient
+      .post('/kyc/tier2', {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        country: formData.country,
+        addressLine1: formData.streetAddress,
+        city: formData.city,
+        postalCode: formData.postalCode,
+        documentType: formData.docType,
+        documentNumber: formData.docNumber,
+        proofOfAddressType: formData.addressDocType,
       })
       .then(() => {
         setIsSubmitting(false)

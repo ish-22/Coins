@@ -31,6 +31,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
+import apiClient from '@/services/apiClient'
 import { Typography } from '@/components/common/Typography'
 import {
   ServiceStatus,
@@ -117,8 +118,8 @@ export const Status: React.FC = () => {
 
   const fetchStatus = () => {
     setIsRefreshing(true)
-    import('@/services/apiClient')
-      .then(({ apiClient }) => apiClient.get('/system-status'))
+    apiClient
+      .get('/system-status')
       .then((res) => {
         setIsRefreshing(false)
         if (res.data?.services && Array.isArray(res.data.services) && res.data.services.length > 0) {

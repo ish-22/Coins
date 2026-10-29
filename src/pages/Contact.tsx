@@ -26,6 +26,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
+import apiClient from '@/services/apiClient'
 import { Typography } from '@/components/common/Typography'
 import { Input } from '@/components/common/Input'
 import {
@@ -117,15 +118,13 @@ export const Contact: React.FC = () => {
     }
 
     setIsSubmitting(true)
-    import('@/services/apiClient')
-      .then(({ apiClient }) => {
-        return apiClient.post('/support/contact', {
-          name: name.trim(),
-          email: email.trim(),
-          category,
-          subject: subject.trim(),
-          message: message.trim(),
-        })
+    apiClient
+      .post('/support/contact', {
+        name: name.trim(),
+        email: email.trim(),
+        category,
+        subject: subject.trim(),
+        message: message.trim(),
       })
       .then((res) => {
         setIsSubmitting(false)

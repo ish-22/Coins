@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { Badge } from '@/components/common/Badge'
+import { accountService } from '@/services/accountService'
 
 export interface TwoFactorModalProps {
   isOpen: boolean
@@ -57,10 +58,8 @@ export const TwoFactorModal: React.FC<TwoFactorModalProps> = ({
     }
 
     setIsSubmitting(true)
-    import('@/services/accountService')
-      .then(({ accountService }) => {
-        return accountService.toggle2FA(!isCurrentlyEnabled)
-      })
+    accountService
+      .toggle2FA(!isCurrentlyEnabled)
       .then(() => {
         setIsSubmitting(false)
         onSuccess(!isCurrentlyEnabled)

@@ -26,6 +26,7 @@ import { Button } from '@/components/common/Button'
 import { useLayout } from '@/context/LayoutContext'
 import { useAuth } from '@/context/AuthContext'
 import { mockCryptoAssets } from '@/mock'
+import { notificationService, marketService } from '@/services'
 
 export const Header: React.FC = () => {
   const { openMobileDrawer, isSearchOpen, setSearchOpen, toggleSearch } = useLayout()
@@ -99,34 +100,32 @@ export const Header: React.FC = () => {
     }
 
     let isMounted = true
-    import('@/services/notificationService').then(({ notificationService }) => {
-      notificationService
-        .getNotifications()
-        .then((items) => {
-          if (!isMounted || !items || items.length === 0) return
-          const mapped = items.slice(0, 5).map((n) => {
-            const icon =
-              n.category === 'trading'
-                ? CheckCircle2
-                : n.category === 'security'
-                ? ShieldCheck
-                : n.category === 'transactions'
-                ? TrendingUp
-                : Sparkles
+    notificationService
+      .getNotifications()
+      .then((items) => {
+        if (!isMounted || !items || items.length === 0) return
+        const mapped = items.slice(0, 5).map((n) => {
+          const icon =
+            n.category === 'trading'
+              ? CheckCircle2
+              : n.category === 'security'
+              ? ShieldCheck
+              : n.category === 'transactions'
+              ? TrendingUp
+              : Sparkles
 
-            return {
-              id: n.id,
-              title: n.title,
-              desc: n.message,
-              time: n.timestamp || 'Recent',
-              icon,
-              isPositive: n.category !== 'security',
-            }
-          })
-          setHeaderNotifications(mapped)
+          return {
+            id: n.id,
+            title: n.title,
+            desc: n.message,
+            time: n.timestamp || 'Recent',
+            icon,
+            isPositive: n.category !== 'security',
+          }
         })
-        .catch(() => {})
-    })
+        setHeaderNotifications(mapped)
+      })
+      .catch(() => {})
 
     return () => {
       isMounted = false
@@ -137,42 +136,40 @@ export const Header: React.FC = () => {
 
   useEffect(() => {
     let isMounted = true
-    import('@/services/marketService').then(({ marketService }) => {
-      const syncTickers = () => {
-        marketService
-          .getTickers()
-          .then((pairs) => {
-            if (isMounted && pairs && pairs.length > 0) {
-              setTickerAssets((prev) =>
-                prev.map((asset) => {
-                  const matched = pairs.find(
-                    (p) =>
-                      p.baseAsset.toLowerCase() === asset.symbol.toLowerCase() ||
-                      p.symbol.toLowerCase().replace(/[-/_]/g, '') === asset.symbol.toLowerCase() + 'usdt' ||
-                      p.symbol.toLowerCase().startsWith(asset.symbol.toLowerCase())
-                  )
-                  if (matched) {
-                    return {
-                      ...asset,
-                      priceUsd: matched.price,
-                      change24h: matched.change24h,
-                    }
+    const syncTickers = () => {
+      marketService
+        .getTickers()
+        .then((pairs) => {
+          if (isMounted && pairs && pairs.length > 0) {
+            setTickerAssets((prev) =>
+              prev.map((asset) => {
+                const matched = pairs.find(
+                  (p) =>
+                    p.baseAsset.toLowerCase() === asset.symbol.toLowerCase() ||
+                    p.symbol.toLowerCase().replace(/[-/_]/g, '') === asset.symbol.toLowerCase() + 'usdt' ||
+                    p.symbol.toLowerCase().startsWith(asset.symbol.toLowerCase())
+                )
+                if (matched) {
+                  return {
+                    ...asset,
+                    priceUsd: matched.price,
+                    change24h: matched.change24h,
                   }
-                  return asset
-                })
-              )
-            }
-          })
-          .catch(() => {})
-      }
+                }
+                return asset
+              })
+            )
+          }
+        })
+        .catch(() => {})
+    }
 
-      syncTickers()
-      const timer = setInterval(syncTickers, 10000)
-      return () => clearInterval(timer)
-    })
+    syncTickers()
+    const timer = setInterval(syncTickers, 10000)
 
     return () => {
       isMounted = false
+      clearInterval(timer)
     }
   }, [])
 

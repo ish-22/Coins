@@ -43,6 +43,7 @@ import {
   INITIAL_TRUSTED_DEVICES,
   INITIAL_WHITELIST_ADDRESSES,
 } from '@/mock/settingsData'
+import { accountService } from '@/services/accountService'
 import {
   TwoFactorModal,
   AddPasskeyModal,
@@ -83,26 +84,24 @@ export const Settings: React.FC = () => {
 
   // Load sessions from API
   useEffect(() => {
-    import('@/services/accountService').then(({ accountService }) => {
-      accountService
-        .getSessions()
-        .then((data: any) => {
-          if (data && Array.isArray(data) && data.length > 0) {
-            setSessions(
-              data.map((s: any) => ({
-                id: s.id,
-                device: s.device,
-                browser: s.browser || s.device || 'Chrome / Browser',
-                ip: s.ip,
-                location: s.location,
-                isCurrent: !!s.isCurrent,
-                lastActive: s.lastActive,
-              }))
-            )
-          }
-        })
-        .catch(() => {})
-    })
+    accountService
+      .getSessions()
+      .then((data: any) => {
+        if (data && Array.isArray(data) && data.length > 0) {
+          setSessions(
+            data.map((s: any) => ({
+              id: s.id,
+              device: s.device,
+              browser: s.browser || s.device || 'Chrome / Browser',
+              ip: s.ip,
+              location: s.location,
+              isCurrent: !!s.isCurrent,
+              lastActive: s.lastActive,
+            }))
+          )
+        }
+      })
+      .catch(() => {})
   }, [])
 
   // Section 6: Trusted Devices
@@ -177,7 +176,6 @@ export const Settings: React.FC = () => {
     }
 
     try {
-      const { accountService } = await import('@/services/accountService')
       await accountService.changePassword({
         current_password: currentPassword,
         password: newPassword,

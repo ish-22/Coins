@@ -51,11 +51,6 @@ export const Account: React.FC = () => {
   const [formData, setFormData] = useState<UserAccountProfile>(() => user || DEFAULT_USER_PROFILE)
   const [isSaving, setIsSaving] = useState(false)
 
-  // Fetch latest profile from backend on mount
-  useEffect(() => {
-    refreshUser()
-  }, [refreshUser])
-
   // Synchronize with auth user changes
   useEffect(() => {
     if (user) {

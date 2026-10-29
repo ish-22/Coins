@@ -34,6 +34,7 @@ import {
 } from '@/mock/feesData'
 import { FeeCalculator } from '@/components/fees'
 import { useEffect } from 'react'
+import apiClient from '@/services/apiClient'
 
 export const Fees: React.FC = () => {
   // FAQ accordion state
@@ -41,9 +42,7 @@ export const Fees: React.FC = () => {
 
   // Fetch live fee schedule from backend
   useEffect(() => {
-    import('@/services/apiClient').then(({ apiClient }) => {
-      apiClient.get('/fees').catch(() => {})
-    })
+    apiClient.get('/fees').catch(() => {})
   }, [])
 
   const toggleFaq = (index: number) => {
