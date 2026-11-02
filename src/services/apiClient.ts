@@ -14,12 +14,20 @@ export const apiClient: AxiosInstance = axios.create({
 // Request interceptor: inject Bearer token
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Check user auth token or admin auth token
-    const token =
-      localStorage.getItem('cp_token') ||
-      sessionStorage.getItem('cp_token') ||
-      localStorage.getItem('cp_admin_token') ||
-      sessionStorage.getItem('cp_admin_token')
+    // Prioritize admin token for admin routes to avoid token collision
+    const isAdminReq =
+      config.url?.startsWith('/admin') ||
+      (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin'))
+
+    const token = isAdminReq
+      ? localStorage.getItem('cp_admin_token') ||
+        sessionStorage.getItem('cp_admin_token') ||
+        localStorage.getItem('cp_token') ||
+        sessionStorage.getItem('cp_token')
+      : localStorage.getItem('cp_token') ||
+        sessionStorage.getItem('cp_token') ||
+        localStorage.getItem('cp_admin_token') ||
+        sessionStorage.getItem('cp_admin_token')
 
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
