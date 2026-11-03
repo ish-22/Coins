@@ -63,6 +63,17 @@ export const authService = {
       storage.setItem('cp_user', JSON.stringify(res.data.user))
       localStorage.removeItem('cp_user_account_profile')
       sessionStorage.removeItem('cp_user_account_profile')
+
+      // If user has admin role, also configure administrator session tokens
+      if (res.data.user?.role === 'admin' || res.data.role === 'admin') {
+        localStorage.setItem('cp_admin_token', res.data.token)
+        localStorage.setItem('cp_admin_user', JSON.stringify(res.data.user))
+        localStorage.setItem('cp_admin_auth', 'true')
+        sessionStorage.setItem('cp_admin_token', res.data.token)
+        sessionStorage.setItem('cp_admin_user', JSON.stringify(res.data.user))
+        sessionStorage.setItem('cp_admin_auth', 'true')
+      }
+
       window.dispatchEvent(new Event('cp_auth_changed'))
     }
     return res.data
@@ -74,9 +85,13 @@ export const authService = {
   }): Promise<UserAuthResponse> {
     const res = await apiClient.post<UserAuthResponse>('/auth/admin-login', credentials)
     if (res.data.token) {
+      localStorage.setItem('cp_admin_token', res.data.token)
+      localStorage.setItem('cp_admin_user', JSON.stringify(res.data.user))
+      localStorage.setItem('cp_admin_auth', 'true')
       sessionStorage.setItem('cp_admin_token', res.data.token)
       sessionStorage.setItem('cp_admin_user', JSON.stringify(res.data.user))
       sessionStorage.setItem('cp_admin_auth', 'true')
+      window.dispatchEvent(new Event('cp_auth_changed'))
     }
     return res.data
   },
@@ -94,7 +109,10 @@ export const authService = {
       localStorage.removeItem('cp_user_account_profile')
       sessionStorage.removeItem('cp_user_account_profile')
       localStorage.removeItem('cp_admin_token')
+      sessionStorage.removeItem('cp_admin_token')
+      localStorage.removeItem('cp_admin_user')
       sessionStorage.removeItem('cp_admin_user')
+      localStorage.removeItem('cp_admin_auth')
       sessionStorage.removeItem('cp_admin_auth')
       window.dispatchEvent(new Event('cp_auth_changed'))
     }
@@ -120,7 +138,6 @@ export const authService = {
     return res.data
   },
 
-
   getStoredUser() {
     const userStr = localStorage.getItem('cp_user') || sessionStorage.getItem('cp_user')
     if (!userStr) return null
@@ -136,7 +153,12 @@ export const authService = {
   },
 
   isAdminAuthenticated(): boolean {
-    return !!(sessionStorage.getItem('cp_admin_token') || sessionStorage.getItem('cp_admin_auth'))
+    return !!(
+      sessionStorage.getItem('cp_admin_token') ||
+      sessionStorage.getItem('cp_admin_auth') ||
+      localStorage.getItem('cp_admin_token') ||
+      localStorage.getItem('cp_admin_auth')
+    )
   },
 }
 
