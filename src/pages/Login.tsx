@@ -76,7 +76,8 @@ export const Login: React.FC = () => {
       })
 
       // If logging in as an administrator, configure operator session and direct to /admin/dashboard
-      if (res.user?.role === 'admin' || res.role === 'admin') {
+      const userRole = res.user?.role || res.role || ''
+      if (['admin', 'super_admin', 'operator'].includes(userRole)) {
         sessionStorage.setItem('cp_admin_auth', 'true')
         sessionStorage.setItem('cp_admin_token', res.token)
         sessionStorage.setItem('cp_admin_user', JSON.stringify(res.user))

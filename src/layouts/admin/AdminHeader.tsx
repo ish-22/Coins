@@ -1,18 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Menu,
   Bell,
   Search,
   LogOut,
-  User,
   ShieldCheck,
-  CheckCircle2,
-  Clock,
-  Sparkles,
+  ShieldAlert,
   ExternalLink,
   Sliders,
-  X,
+  Users,
 } from 'lucide-react'
 import { Badge } from '@/components/common/Badge'
 
@@ -26,6 +23,16 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onToggleMobileMenu }) 
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const profileRef = useRef<HTMLDivElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
+
+  // Current authenticated admin profile
+  const adminUser = useMemo(() => {
+    try {
+      const stored = sessionStorage.getItem('cp_admin_user') || localStorage.getItem('cp_admin_user')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  }, [])
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -51,6 +58,20 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onToggleMobileMenu }) 
     navigate('/admin/login')
   }
 
+  const roleLabel = useMemo(() => {
+    const role = adminUser?.role
+    if (role === 'super_admin') return 'Super Administrator'
+    if (role === 'admin') return 'Administrator'
+    if (role === 'operator') return 'Support Operator'
+    return 'Staff Console'
+  }, [adminUser])
+
+  const initials = useMemo(() => {
+    if (adminUser?.avatar_initials) return adminUser.avatar_initials
+    const name = adminUser?.name || adminUser?.full_name || 'Admin'
+    const parts = name.trim().split(' ')
+    return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase()
+  }, [adminUser])
 
   const mockAdminAlerts = [
     { id: '1', title: 'New KYC Tier 1 Submission', time: '10m ago', unread: true },
@@ -76,7 +97,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onToggleMobileMenu }) 
             CoinPlus Operator Desk
           </span>
           <Badge variant="gold" size="sm" className="text-[10px] py-0 px-1.5">
-            Demonstration v2.4
+            RBAC Enabled
           </Badge>
         </div>
       </div>
@@ -151,14 +172,14 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onToggleMobileMenu }) 
             className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-cp-elevated transition-colors"
           >
             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cp-gold to-cp-gold/40 text-cp-bg font-black text-xs flex items-center justify-center">
-              OP
+              {initials}
             </div>
             <div className="hidden sm:block text-left">
               <span className="text-xs font-bold text-cp-text-primary block leading-none">
-                Chief Operator
+                {adminUser?.name || 'Administrator'}
               </span>
               <span className="text-[10px] text-cp-gold font-mono block mt-0.5">
-                Super Admin
+                {roleLabel}
               </span>
             </div>
           </button>
@@ -166,15 +187,26 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onToggleMobileMenu }) 
           {profileOpen && (
             <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-cp-card border border-cp-border shadow-2xl p-2 z-50 animate-fadeIn space-y-1">
               <div className="p-2.5 border-b border-cp-border/60">
-                <span className="text-xs font-bold text-cp-text-primary block">Chief Operator</span>
+                <span className="text-xs font-bold text-cp-text-primary block">
+                  {adminUser?.name || 'Administrator'}
+                </span>
                 <span className="text-[10px] text-cp-text-muted font-mono block truncate">
-                  operator@coinplus.io
+                  {adminUser?.email || 'operator@coinplus.io'}
                 </span>
                 <div className="mt-1 flex items-center gap-1.5 text-[10px] text-cp-positive">
                   <ShieldCheck className="w-3 h-3" />
-                  <span>Hardware Key Verified</span>
+                  <span>Role: {roleLabel}</span>
                 </div>
               </div>
+
+              <Link
+                to="/admin/users"
+                onClick={() => setProfileOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-cp-text-secondary hover:text-cp-text-primary hover:bg-cp-elevated transition-colors"
+              >
+                <Users className="w-4 h-4 text-cp-gold" />
+                <span>User & Role Management</span>
+              </Link>
 
               <Link
                 to="/admin/settings"
@@ -200,7 +232,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onToggleMobileMenu }) 
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-cp-negative hover:bg-cp-negative/10 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
-                <span>Sign Out of Admin</span>
+                <span>Sign Out Console</span>
               </button>
             </div>
           )}
@@ -209,3 +241,5 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({ onToggleMobileMenu }) 
     </header>
   )
 }
+
+export default AdminHeader
