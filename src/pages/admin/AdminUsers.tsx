@@ -25,6 +25,17 @@ export const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended' | 'pending'>('all')
+  const [roleFilter, setRoleFilter] = useState<'all' | 'user' | 'operator' | 'admin'>('all')
+
+  const currentAdmin = useMemo(() => {
+    try {
+      const stored = sessionStorage.getItem('cp_admin_user') || localStorage.getItem('cp_admin_user')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  }, [])
+  const isOperator = currentAdmin?.role === 'operator'
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -548,6 +559,12 @@ export const AdminUsers: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-3.5 text-xs">
               <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                <span className="text-cp-text-muted block text-[10px] uppercase">Assigned Role</span>
+                <span className="font-bold text-cp-gold mt-0.5 block uppercase tracking-wide">
+                  {selectedUser.role ? selectedUser.role.replace('_', ' ') : 'USER (TRADER)'}
+                </span>
+              </div>
+              <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
                 <span className="text-cp-text-muted block text-[10px] uppercase">Email Address</span>
                 <span className="font-mono text-cp-text-primary font-semibold mt-0.5 block truncate">
                   {selectedUser.email}
@@ -613,6 +630,7 @@ export const AdminUsers: React.FC = () => {
                   variant="outline"
                   size="sm"
                   className="text-cp-negative border-cp-negative/40 hover:bg-cp-negative/15"
+                  disabled={isOperator && ['admin', 'super_admin'].includes(selectedUser.role || '')}
                   onClick={() => handleOpenActionModal(selectedUser, 'suspend')}
                 >
                   Suspend Account

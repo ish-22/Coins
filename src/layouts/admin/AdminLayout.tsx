@@ -25,14 +25,14 @@ export const AdminLayout: React.FC = () => {
     if (adminUserStr) {
       try {
         const u = JSON.parse(adminUserStr)
-        if (u?.role === 'admin') return true
+        if (['admin', 'super_admin', 'operator'].includes(u?.role)) return true
       } catch {}
     }
     const userStr = localStorage.getItem('cp_user') || sessionStorage.getItem('cp_user')
     if (userStr) {
       try {
         const u = JSON.parse(userStr)
-        if (u?.role === 'admin') return true
+        if (['admin', 'super_admin', 'operator'].includes(u?.role)) return true
       } catch {}
     }
     return false

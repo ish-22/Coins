@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Coins,
   Search,
@@ -8,6 +8,7 @@ import {
   X,
   Sliders,
   Sparkles,
+  ShieldAlert,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
@@ -21,6 +22,16 @@ export const AdminAssets: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+
+  const currentAdmin = useMemo(() => {
+    try {
+      const stored = sessionStorage.getItem('cp_admin_user') || localStorage.getItem('cp_admin_user')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  }, [])
+  const isOperator = currentAdmin?.role === 'operator'
 
   // Toggle confirmation modal state
   const [confirmAsset, setConfirmAsset] = useState<AdminAssetRecord | null>(null)
@@ -115,6 +126,16 @@ export const AdminAssets: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Role-Based Access Control Notice */}
+      {isOperator && (
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 flex items-center gap-2.5">
+          <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />
+          <span>
+            <strong>Role-Based Restriction:</strong> Support Operators have read-only visibility into assets. Modifying currency switches requires Administrator privileges.
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>

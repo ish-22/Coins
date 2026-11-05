@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Sliders,
   Save,
@@ -41,6 +41,16 @@ export const AdminSettings: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  const currentAdmin = useMemo(() => {
+    try {
+      const stored = sessionStorage.getItem('cp_admin_user') || localStorage.getItem('cp_admin_user')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  }, [])
+  const isOperator = currentAdmin?.role === 'operator'
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -109,7 +119,7 @@ export const AdminSettings: React.FC = () => {
           </p>
         </div>
 
-        <Button variant="primary" size="sm" onClick={handleSaveSettings} disabled={isSaving}>
+        <Button variant="primary" size="sm" onClick={handleSaveSettings} disabled={isSaving || isOperator}>
           <Save className="w-4 h-4 mr-1.5" />
           {isSaving ? 'Saving...' : 'Save All Settings'}
         </Button>

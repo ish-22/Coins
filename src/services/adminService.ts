@@ -16,6 +16,7 @@ const normalizeAdminUser = (user: Partial<AdminUser> & Record<string, any>): Adm
   userRef: user.userRef ?? user.uid ?? 'UID-N/A',
   name: user.name ?? user.full_name ?? 'Unknown User',
   email: user.email ?? '',
+  role: user.role ?? 'user',
   country: user.country ?? 'United States',
   countryCode: user.countryCode ?? user.country_code ?? 'US',
   status: (user.status as AdminUser['status']) ?? 'pending',

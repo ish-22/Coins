@@ -9,6 +9,7 @@ export interface AdminUser {
   userRef: string
   name: string
   email: string
+  role?: 'admin' | 'super_admin' | 'operator' | 'user' | string
   country: string
   countryCode: string
   status: 'active' | 'suspended' | 'pending'
