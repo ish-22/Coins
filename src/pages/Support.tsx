@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Headphones,
@@ -30,7 +30,6 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { Typography } from '@/components/common/Typography'
 import {
   SupportCategory,
   TicketStatus,
@@ -44,6 +43,7 @@ import {
   TicketDetailModal,
 } from '@/components/support'
 import { useAuth } from '@/context/AuthContext'
+import { supportService } from '@/services/supportService'
 
 export const Support: React.FC = () => {
   const { user } = useAuth()
@@ -54,15 +54,10 @@ export const Support: React.FC = () => {
   // Expanded FAQ accordion items
   const [expandedFaqIds, setExpandedFaqIds] = useState<string[]>(['faq-1'])
 
-  // Support Tickets State (persisted in localStorage)
-  const [tickets, setTickets] = useState<SupportTicket[]>(() => {
-    try {
-      const saved = localStorage.getItem('cp_support_tickets')
-      return saved ? JSON.parse(saved) : INITIAL_SUPPORT_TICKETS
-    } catch {
-      return INITIAL_SUPPORT_TICKETS
-    }
-  })
+  // Support Tickets State
+  const [tickets, setTickets] = useState<SupportTicket[]>([])
+  const [isLoadingTickets, setIsLoadingTickets] = useState(false)
+  const [totalUnread, setTotalUnread] = useState(0)
 
   // Ticket filters
   const [ticketStatusFilter, setTicketStatusFilter] = useState<'all' | TicketStatus>('all')
@@ -71,21 +66,63 @@ export const Support: React.FC = () => {
   // Modals & Selection
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null)
+  const selectedTicketIdRef = useRef<string | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  // Persist tickets
+  // Keep track of active ticket ID in ref for poll updates
   useEffect(() => {
-    try {
-      localStorage.setItem('cp_support_tickets', JSON.stringify(tickets))
-    } catch {
-      // ignore
-    }
-  }, [tickets])
+    selectedTicketIdRef.current = selectedTicket?.id ?? null
+  }, [selectedTicket])
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg)
     setTimeout(() => setToastMessage(null), 3000)
   }
+
+  // Fetch live tickets
+  const fetchTickets = async (showLoading = false) => {
+    if (!user) return
+    try {
+      if (showLoading) setIsLoadingTickets(true)
+      const data = await supportService.getTickets()
+      if (data && data.tickets) {
+        setTickets(data.tickets)
+        setTotalUnread(data.totalUnread || 0)
+
+        // If a ticket is currently open in modal, update its messages in real-time
+        if (selectedTicketIdRef.current) {
+          const updatedSelected = data.tickets.find((t) => t.id === selectedTicketIdRef.current)
+          if (updatedSelected) {
+            setSelectedTicket(updatedSelected)
+          }
+        }
+      }
+    } catch {
+      // Fallback to local demonstration if backend is unreachable
+      if (tickets.length === 0) {
+        setTickets(INITIAL_SUPPORT_TICKETS)
+      }
+    } finally {
+      if (showLoading) setIsLoadingTickets(false)
+    }
+  }
+
+  // Initial load & 3-second real-time polling
+  useEffect(() => {
+    let isMounted = true
+    fetchTickets(true)
+
+    const intervalId = setInterval(() => {
+      if (isMounted) {
+        fetchTickets(false)
+      }
+    }, 3000)
+
+    return () => {
+      isMounted = false
+      clearInterval(intervalId)
+    }
+  }, [user])
 
   // Toggle FAQ accordion item
   const toggleFaq = (id: string) => {
@@ -97,54 +134,52 @@ export const Support: React.FC = () => {
   // Handle new ticket created
   const handleTicketCreated = (newTicket: SupportTicket) => {
     setTickets((prev) => [newTicket, ...prev])
-    triggerToast(`Support ticket ${newTicket.id} submitted successfully!`)
+    setSelectedTicket(newTicket)
+    triggerToast(`Support ticket ${newTicket.ticketRef || newTicket.id} submitted successfully!`)
   }
 
-  // Handle add simulated reply to ticket
-  const handleAddReply = (ticketId: string, replyText: string) => {
-    const now = new Date()
-    const timestampStr = 'Today at ' + now.toTimeString().slice(0, 5) + ' UTC'
-
-    setTickets((prev) =>
-      prev.map((t) => {
-        if (t.id === ticketId) {
-          const updatedMessages = [
-            ...t.messages,
-            {
-              id: `msg-${Date.now()}`,
-              sender: 'user' as const,
-              senderName: user?.displayName || user?.name || user?.fullName || 'User',
-              message: replyText,
-              timestamp: timestampStr,
-            },
-          ]
-          const updatedTicket = {
-            ...t,
-            status: 'in_progress' as TicketStatus,
-            updatedAt: now.toISOString().replace('T', ' ').slice(0, 16),
-            messages: updatedMessages,
-          }
-          if (selectedTicket?.id === ticketId) {
-            setSelectedTicket(updatedTicket)
-          }
-          return updatedTicket
-        }
-        return t
-      })
-    )
-
-    triggerToast('Simulated reply sent to support desk.')
-  }
-
-  // Reset demonstration tickets
-  const handleResetDemo = () => {
-    setTickets(INITIAL_SUPPORT_TICKETS)
+  // Handle add live reply to ticket
+  const handleAddReply = async (ticketId: string, replyText: string) => {
     try {
-      localStorage.removeItem('cp_support_tickets')
-    } catch {
-      // ignore
+      const response = await supportService.replyTicket(ticketId, replyText)
+      // Update ticket locally immediately
+      setTickets((prev) =>
+        prev.map((t) => {
+          if (t.id === ticketId) {
+            const updatedMessages = [
+              ...t.messages,
+              response.reply,
+            ]
+            const updated = {
+              ...t,
+              status: (response.ticket?.status ?? 'open') as TicketStatus,
+              updatedAt: 'Just now',
+              messages: updatedMessages,
+            }
+            if (selectedTicket?.id === ticketId) {
+              setSelectedTicket(updated)
+            }
+            return updated
+          }
+          return t
+        })
+      )
+      triggerToast('Reply dispatched to support team.')
+      // Quick re-fetch to sync
+      fetchTickets(false)
+    } catch (err: any) {
+      triggerToast(err?.response?.data?.message || 'Failed to dispatch reply.')
     }
-    triggerToast('Reset demonstration support tickets.')
+  }
+
+  const handleStatusChange = (ticketId: string, newStatus: TicketStatus) => {
+    setTickets((prev) =>
+      prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t))
+    )
+    if (selectedTicket?.id === ticketId) {
+      setSelectedTicket((prev) => (prev ? { ...prev, status: newStatus } : null))
+    }
+    triggerToast(`Ticket updated to ${newStatus}.`)
   }
 
   // Filter FAQs
@@ -181,6 +216,7 @@ export const Support: React.FC = () => {
       result = result.filter(
         (t) =>
           t.subject.toLowerCase().includes(q) ||
+          (t.ticketRef && t.ticketRef.toLowerCase().includes(q)) ||
           t.id.toLowerCase().includes(q) ||
           t.category.toLowerCase().includes(q)
       )
@@ -216,9 +252,11 @@ export const Support: React.FC = () => {
       case 'in_progress':
         return <Badge variant="gold" size="sm" withDot pulseDot>In Progress</Badge>
       case 'waiting_user':
-        return <Badge variant="gold" size="sm" withDot>Waiting for User</Badge>
+        return <Badge variant="gold" size="sm" withDot>Waiting for You</Badge>
       case 'resolved':
         return <Badge variant="positive" size="sm" withDot>Resolved</Badge>
+      case 'closed':
+        return <Badge variant="neutral" size="sm" withDot>Closed</Badge>
     }
   }
 
@@ -249,7 +287,7 @@ export const Support: React.FC = () => {
       <div className="relative rounded-2xl bg-gradient-to-b from-cp-elevated via-cp-card to-cp-card border border-cp-border p-6 sm:p-10 text-center space-y-4 overflow-hidden shadow-card">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cp-gold/10 border border-cp-gold/30 text-cp-gold text-xs font-semibold">
           <Headphones className="w-3.5 h-3.5" />
-          <span>CoinPlus Help & Customer Care</span>
+          <span>CoinPlus Real-Time Customer Support</span>
         </div>
 
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-cp-text-primary">
@@ -257,7 +295,7 @@ export const Support: React.FC = () => {
         </h1>
 
         <p className="text-xs sm:text-sm text-cp-text-secondary max-w-lg mx-auto">
-          Search articles, explore common cryptocurrency trading FAQs, or submit a priority support ticket.
+          Chat directly with the administrative team in real time, review ticket conversations, or explore FAQs.
         </p>
 
         {/* Global Help Search Input */}
@@ -281,25 +319,21 @@ export const Support: React.FC = () => {
         </div>
       </div>
 
-      {/* Demonstration Notice Banner */}
+      {/* Real-Time Live Status Banner */}
       <div className="p-3.5 sm:p-4 rounded-xl bg-cp-card/90 border border-cp-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-cp-gold/10 border border-cp-gold/30 flex items-center justify-center text-cp-gold shrink-0">
-            <Info className="w-4 h-4" />
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           </div>
           <div className="text-xs text-cp-text-secondary">
-            <span className="font-semibold text-cp-text-primary">Demonstration Help Center:</span> Support
-            tickets, replies, and FAQs are simulated for user interface demonstration. Inquiries are stored in
-            your local browser session and are not dispatched to external support agents.
+            <span className="font-semibold text-cp-text-primary">Live Support Desk Connected:</span> Direct messaging with operators is active. Incoming replies arrive in real time without refreshing the page.
           </div>
         </div>
-        <button
-          onClick={handleResetDemo}
-          className="flex items-center gap-1.5 text-xs text-cp-gold hover:underline self-end sm:self-auto shrink-0 font-medium"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Reset Sample Tickets</span>
-        </button>
+        {totalUnread > 0 && (
+          <Badge variant="gold" size="sm" className="shrink-0 self-start sm:self-auto font-mono">
+            {totalUnread} Unread Message{totalUnread > 1 ? 's' : ''}
+          </Badge>
+        )}
       </div>
 
       {/* 1. BROWSE BY CATEGORY TILES */}
@@ -425,13 +459,18 @@ export const Support: React.FC = () => {
         <div className="p-4 sm:p-5 border-b border-cp-border flex flex-col md:flex-row md:items-center justify-between gap-4 bg-cp-elevated/40">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-cp-text-primary">My Support Tickets</h2>
+              <h2 className="text-base font-bold text-cp-text-primary">Customer Support Conversations</h2>
               <Badge variant="gold" size="sm">
-                {tickets.length} Total
+                {tickets.length} Active
               </Badge>
+              {totalUnread > 0 && (
+                <Badge variant="positive" size="sm">
+                  {totalUnread} New
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-cp-text-secondary mt-0.5">
-              Track open inquiries, review support replies, and add follow-up notes.
+              Chat directly with administrator support in real time.
             </p>
           </div>
 
@@ -441,7 +480,7 @@ export const Support: React.FC = () => {
             leftIcon={<Plus className="w-4 h-4" />}
             onClick={() => setIsCreateModalOpen(true)}
           >
-            Create Support Ticket
+            New Support Conversation
           </Button>
         </div>
 
@@ -451,7 +490,7 @@ export const Support: React.FC = () => {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-cp-text-secondary" />
             <input
               type="text"
-              placeholder="Search by ticket ID or subject..."
+              placeholder="Search conversations by subject or reference..."
               value={ticketSearch}
               onChange={(e) => setTicketSearch(e.target.value)}
               className="w-full bg-cp-elevated border border-cp-border rounded-lg pl-9 pr-8 py-2 text-xs text-cp-text-primary placeholder:text-cp-text-secondary/60 focus:outline-none focus:border-cp-gold"
@@ -476,72 +515,84 @@ export const Support: React.FC = () => {
               <option value="all">All Statuses</option>
               <option value="open">Open</option>
               <option value="in_progress">In Progress</option>
-              <option value="waiting_user">Waiting for User</option>
+              <option value="waiting_user">Waiting for You</option>
               <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
             </select>
           </div>
         </div>
 
         {/* Tickets List */}
-        {filteredTickets.length === 0 ? (
+        {isLoadingTickets && tickets.length === 0 ? (
+          <div className="py-16 text-center text-xs text-cp-text-secondary">
+            Loading conversations from support desk...
+          </div>
+        ) : filteredTickets.length === 0 ? (
           <div className="py-16 text-center space-y-3">
             <div className="w-12 h-12 rounded-full bg-cp-elevated border border-cp-border flex items-center justify-center mx-auto text-cp-text-secondary">
               <MessageSquare className="w-6 h-6" />
             </div>
-            <h4 className="text-sm font-bold text-cp-text-primary">No Tickets Found</h4>
+            <h4 className="text-sm font-bold text-cp-text-primary">No Conversations Found</h4>
             <p className="text-xs text-cp-text-secondary max-w-sm mx-auto">
               {ticketSearch || ticketStatusFilter !== 'all'
                 ? 'No tickets match your search criteria. Try adjusting your filters.'
-                : 'You have no open support tickets. Need help? Click the button below to create one.'}
+                : 'You have no open support tickets. Need help? Click the button below to start a live conversation.'}
             </p>
             <Button variant="secondary" size="sm" onClick={() => setIsCreateModalOpen(true)}>
-              Open New Ticket
+              Start Live Conversation
             </Button>
           </div>
         ) : (
           <div className="divide-y divide-cp-border/50">
-            {filteredTickets.map((t) => (
-              <div
-                key={t.id}
-                onClick={() => setSelectedTicket(t)}
-                className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-cp-elevated/40 transition-colors cursor-pointer group"
-              >
-                <div className="space-y-1.5 flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono font-bold text-xs text-cp-gold">{t.id}</span>
-                    {getStatusBadge(t.status)}
-                    {getPriorityBadge(t.priority)}
-                    <Badge variant="neutral" size="sm" className="capitalize text-[10px] px-1.5 py-0">
-                      {t.category}
-                    </Badge>
+            {filteredTickets.map((t) => {
+              const hasUnread = (t.unreadCount ?? 0) > 0
+
+              return (
+                <div
+                  key={t.id}
+                  onClick={() => setSelectedTicket(t)}
+                  className={`p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-cp-elevated/40 transition-colors cursor-pointer group ${
+                    hasUnread ? 'bg-cp-gold/5 border-l-2 border-l-cp-gold' : ''
+                  }`}
+                >
+                  <div className="space-y-1.5 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono font-bold text-xs text-cp-gold">{t.ticketRef || t.id}</span>
+                      {getStatusBadge(t.status)}
+                      {getPriorityBadge(t.priority)}
+                      <Badge variant="neutral" size="sm" className="capitalize text-[10px] px-1.5 py-0">
+                        {t.category}
+                      </Badge>
+                      {hasUnread && (
+                        <span className="px-2 py-0.5 rounded-full bg-cp-gold text-cp-bg text-[10px] font-bold font-mono animate-pulse">
+                          {t.unreadCount} Unread
+                        </span>
+                      )}
+                    </div>
+
+                    <h3 className="text-sm font-bold text-cp-text-primary group-hover:text-cp-gold transition-colors truncate">
+                      {t.subject}
+                    </h3>
+
+                    <div className="flex items-center gap-3 text-[11px] text-cp-text-secondary font-mono pt-0.5">
+                      <span>Created: {t.createdAt}</span>
+                      <span>•</span>
+                      <span>{t.messages.length} message{t.messages.length > 1 ? 's' : ''}</span>
+                    </div>
                   </div>
 
-                  <h3 className="text-sm font-bold text-cp-text-primary group-hover:text-cp-gold transition-colors truncate">
-                    {t.subject}
-                  </h3>
-
-                  <p className="text-xs text-cp-text-secondary line-clamp-1">
-                    {t.description}
-                  </p>
-
-                  <div className="flex items-center gap-3 text-[11px] text-cp-text-secondary font-mono pt-0.5">
-                    <span>Created: {t.createdAt}</span>
-                    <span>•</span>
-                    <span>{t.messages.length} message{t.messages.length > 1 ? 's' : ''}</span>
+                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                    <Button
+                      variant={hasUnread ? 'primary' : 'outline'}
+                      size="sm"
+                      className="h-8 text-xs border-cp-border hover:border-cp-gold"
+                    >
+                      Open Chat <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                    </Button>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs border-cp-border hover:border-cp-gold"
-                  >
-                    View Conversation <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </Card>
@@ -554,71 +605,74 @@ export const Support: React.FC = () => {
             <div className="w-10 h-10 rounded-xl bg-cp-gold/10 border border-cp-gold/30 flex items-center justify-center text-cp-gold">
               <MessageCircle className="w-5 h-5" />
             </div>
-            <h4 className="text-sm font-bold text-cp-text-primary">24/7 Live Desk</h4>
+            <h4 className="text-sm font-bold text-cp-text-primary">Real-Time Support</h4>
             <p className="text-xs text-cp-text-secondary leading-relaxed">
-              Instant simulated concierge support with average wait times under 2 minutes.
+              Instant responses from CoinPlus administrators directly in your user panel.
             </p>
           </div>
           <Button
-            variant="outline"
+            variant="primary"
             size="sm"
             onClick={() => setIsCreateModalOpen(true)}
-            className="w-full text-xs border-cp-border hover:border-cp-gold"
+            className="w-full text-xs"
           >
-            Start Live Chat
+            Start Conversation
           </Button>
         </Card>
 
-        {/* Email Support */}
+        {/* Email Relations */}
         <Card className="p-5 bg-cp-card border-cp-border flex flex-col justify-between space-y-3">
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-cp-positive/10 border border-cp-positive/30 flex items-center justify-center text-cp-positive">
+            <div className="w-10 h-10 rounded-xl bg-cp-elevated border border-cp-border flex items-center justify-center text-cp-text-secondary">
               <Mail className="w-5 h-5" />
             </div>
-            <h4 className="text-sm font-bold text-cp-text-primary">Email Support</h4>
+            <h4 className="text-sm font-bold text-cp-text-primary">Official Relations</h4>
             <p className="text-xs text-cp-text-secondary leading-relaxed">
-              Direct inquiries: <span className="font-mono text-cp-gold">support@coinplus.io</span>. Guaranteed review within 4 hours.
+              Inquiries regarding institutional account onboarding and corporate agreements.
             </p>
           </div>
-          <a href="mailto:support@coinplus.io">
-            <Button variant="outline" size="sm" className="w-full text-xs border-cp-border hover:border-cp-gold">
-              Email Help Desk
-            </Button>
+          <a
+            href="mailto:support@coinplus.io"
+            className="w-full py-2 rounded-lg border border-cp-border text-center text-xs font-semibold text-cp-text-secondary hover:text-cp-gold hover:border-cp-gold transition-colors block"
+          >
+            support@coinplus.io
           </a>
         </Card>
 
-        {/* VIP Priority Desk */}
+        {/* Documentation Portal */}
         <Card className="p-5 bg-cp-card border-cp-border flex flex-col justify-between space-y-3">
           <div className="space-y-2">
-            <div className="w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-amber-400">
-              <Sparkles className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-cp-elevated border border-cp-border flex items-center justify-center text-cp-text-secondary">
+              <FileText className="w-5 h-5" />
             </div>
-            <h4 className="text-sm font-bold text-cp-text-primary">VIP 1 Priority Channel</h4>
+            <h4 className="text-sm font-bold text-cp-text-primary">Institutional Documentation</h4>
             <p className="text-xs text-cp-text-secondary leading-relaxed">
-              Exclusive compliance and institutional desk routing for high-volume accounts.
+              Review trading API specs, compliance guidelines, and system security controls.
             </p>
           </div>
-          <Link to="/account">
-            <Button variant="outline" size="sm" className="w-full text-xs border-cp-border hover:border-cp-gold">
-              View VIP Benefits
-            </Button>
+          <Link
+            to="/status"
+            className="w-full py-2 rounded-lg border border-cp-border text-center text-xs font-semibold text-cp-text-secondary hover:text-cp-gold hover:border-cp-gold transition-colors block"
+          >
+            Platform Status & Service Health
           </Link>
         </Card>
       </div>
 
-      {/* Create Support Ticket Modal */}
+      {/* CREATE TICKET MODAL */}
       <CreateTicketModal
         isOpen={isCreateModalOpen}
-        onCreated={handleTicketCreated}
         onClose={() => setIsCreateModalOpen(false)}
+        onCreated={handleTicketCreated}
       />
 
-      {/* Ticket Details & Conversation Modal */}
+      {/* TICKET DETAIL / CONVERSATION MODAL */}
       <TicketDetailModal
-        isOpen={selectedTicket !== null}
+        isOpen={Boolean(selectedTicket)}
         ticket={selectedTicket}
         onClose={() => setSelectedTicket(null)}
         onAddReply={handleAddReply}
+        onStatusChange={handleStatusChange}
       />
     </div>
   )

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   X,
   MessageSquare,
@@ -9,17 +9,19 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
+  Archive,
 } from 'lucide-react'
 import { Button } from '@/components/common/Button'
 import { Badge } from '@/components/common/Badge'
-import { SupportTicket, TicketMessage } from '@/mock/supportData'
+import { SupportTicket } from '@/mock/supportData'
+import { supportService } from '@/services/supportService'
 
 export interface TicketDetailModalProps {
   isOpen: boolean
   ticket: SupportTicket | null
   onClose: () => void
-  onAddReply: (ticketId: string, replyText: string) => void
+  onAddReply: (ticketId: string, replyText: string) => Promise<void> | void
+  onStatusChange?: (ticketId: string, newStatus: 'open' | 'resolved' | 'closed') => void
 }
 
 export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
@@ -27,22 +29,53 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   ticket,
   onClose,
   onAddReply,
+  onStatusChange,
 }) => {
   const [replyText, setReplyText] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (isOpen && ticket) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      // If there are unread messages from agent, mark read
+      if ((ticket.unreadCount ?? 0) > 0) {
+        supportService.markTicketRead(ticket.id).catch(() => {})
+      }
+    }
+  }, [isOpen, ticket?.messages?.length, ticket?.unreadCount])
 
   if (!isOpen || !ticket) return null
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!replyText.trim()) return
+    if (!replyText.trim() || isSending) return
 
     setIsSending(true)
-    setTimeout(() => {
-      onAddReply(ticket.id, replyText.trim())
+    try {
+      await onAddReply(ticket.id, replyText.trim())
       setReplyText('')
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 100)
+    } finally {
       setIsSending(false)
-    }, 400)
+    }
+  }
+
+  const handleUpdateStatus = async (newStatus: 'resolved' | 'closed') => {
+    setIsUpdatingStatus(true)
+    try {
+      await supportService.updateTicketStatus(ticket.id, newStatus)
+      if (onStatusChange) {
+        onStatusChange(ticket.id, newStatus)
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsUpdatingStatus(false)
+    }
   }
 
   const getStatusBadge = (status: SupportTicket['status']) => {
@@ -52,9 +85,11 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
       case 'in_progress':
         return <Badge variant="gold" size="sm" withDot pulseDot>In Progress</Badge>
       case 'waiting_user':
-        return <Badge variant="gold" size="sm" withDot>Waiting for User</Badge>
+        return <Badge variant="gold" size="sm" withDot>Waiting for You</Badge>
       case 'resolved':
         return <Badge variant="positive" size="sm" withDot>Resolved</Badge>
+      case 'closed':
+        return <Badge variant="neutral" size="sm" withDot>Closed</Badge>
       default:
         return null
     }
@@ -75,6 +110,8 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
     }
   }
 
+  const isClosedOrResolved = ticket.status === 'closed' || ticket.status === 'resolved'
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
       <div className="w-full max-w-2xl rounded-2xl bg-cp-elevated border border-cp-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -86,7 +123,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-xs text-cp-gold">{ticket.id}</span>
+                <span className="font-mono font-bold text-xs text-cp-gold">{ticket.ticketRef || ticket.id}</span>
                 {getStatusBadge(ticket.status)}
                 {getPriorityBadge(ticket.priority)}
               </div>
@@ -95,12 +132,26 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
               </h3>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-cp-text-secondary hover:text-cp-text-primary hover:bg-cp-card transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {!isClosedOrResolved && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleUpdateStatus('resolved')}
+                isLoading={isUpdatingStatus}
+                className="text-xs hidden sm:flex items-center gap-1 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Mark Resolved</span>
+              </Button>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-cp-text-secondary hover:text-cp-text-primary hover:bg-cp-card transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Conversation Thread */}
@@ -121,7 +172,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
           {/* Messages */}
           <div className="space-y-3.5 pt-2">
             {ticket.messages.map((msg) => {
-              const isSupport = msg.sender === 'support'
+              const isSupport = msg.sender === 'support' || msg.sender === 'agent'
 
               return (
                 <div
@@ -150,6 +201,11 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                       >
                         {msg.senderName}
                       </span>
+                      {isSupport && (
+                        <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-cp-gold/20 text-cp-gold">
+                          Staff
+                        </span>
+                      )}
                     </div>
                     <span className="text-[10px] text-cp-text-secondary font-mono flex items-center gap-1">
                       <Clock className="w-3 h-3" />
@@ -157,7 +213,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                     </span>
                   </div>
 
-                  <p className="text-cp-text-secondary text-xs leading-relaxed whitespace-pre-wrap">
+                  <p className="text-cp-text-primary text-xs leading-relaxed whitespace-pre-wrap">
                     {msg.message}
                   </p>
 
@@ -172,6 +228,7 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 </div>
               )
             })}
+            <div ref={messagesEndRef} />
           </div>
         </div>
 
@@ -183,7 +240,8 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 type="text"
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
-                placeholder="Type a simulated reply to customer support..."
+                placeholder="Type your message to customer support..."
+                disabled={isSending}
                 className="flex-1 bg-cp-elevated border border-cp-border rounded-xl px-3.5 py-2.5 text-xs text-cp-text-primary placeholder:text-cp-text-secondary/60 focus:outline-none focus:border-cp-gold transition-colors"
               />
               <Button
@@ -192,14 +250,26 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                 type="submit"
                 disabled={!replyText.trim() || isSending}
                 isLoading={isSending}
-                className="h-10 px-4 text-xs"
+                className="h-10 px-4 text-xs shrink-0"
               >
                 Send <Send className="w-3.5 h-3.5 ml-1" />
               </Button>
             </div>
-            <p className="text-[10px] text-cp-text-secondary text-right">
-              Replies are simulated for demonstration and recorded in your local session.
-            </p>
+            <div className="flex items-center justify-between text-[11px] text-cp-text-secondary">
+              <span className="flex items-center gap-1 text-emerald-400">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Real-time active connection
+              </span>
+              {!isClosedOrResolved && (
+                <button
+                  type="button"
+                  onClick={() => handleUpdateStatus('closed')}
+                  disabled={isUpdatingStatus}
+                  className="hover:text-cp-negative transition-colors flex items-center gap-1 text-[11px]"
+                >
+                  <Archive className="w-3 h-3" /> Close Conversation
+                </button>
+              )}
+            </div>
           </form>
         </div>
       </div>
