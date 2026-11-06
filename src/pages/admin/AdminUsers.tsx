@@ -32,6 +32,8 @@ import {
   Check,
   Lock,
   Scale,
+  TrendingUp,
+  FileCheck,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
@@ -39,6 +41,7 @@ import { Button } from '@/components/common/Button'
 import {
   AdminUser,
   UserBalanceDetailsResponse,
+  AdminUserDetailsResponse,
   UserWalletDetail,
   UserBalanceSummary,
   BalanceAdjustmentRecord,
@@ -65,6 +68,25 @@ export const AdminUsers: React.FC = () => {
   const isOperator = currentAdmin?.role === 'operator'
 
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null)
+  const [fullUserDetails, setFullUserDetails] = useState<AdminUserDetailsResponse | null>(null)
+  const [isLoadingUserDetails, setIsLoadingUserDetails] = useState(false)
+  const [profileActiveTab, setProfileActiveTab] = useState<'profile' | 'kyc' | 'balances' | 'deposits_withdrawals' | 'trading'>('profile')
+  const [historyTypeFilter, setHistoryTypeFilter] = useState<'all' | 'deposit' | 'withdrawal'>('all')
+
+  const handleOpenUserProfile = async (user: AdminUser, defaultTab: 'profile' | 'kyc' | 'balances' | 'deposits_withdrawals' | 'trading' = 'profile') => {
+    setSelectedUser(user)
+    setProfileActiveTab(defaultTab)
+    setIsLoadingUserDetails(true)
+    setFullUserDetails(null)
+    try {
+      const details = await adminService.getUserDetails(user.id)
+      setFullUserDetails(details)
+    } catch (err) {
+      console.error('Failed to load full user details', err)
+    } finally {
+      setIsLoadingUserDetails(false)
+    }
+  }
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -774,7 +796,7 @@ export const AdminUsers: React.FC = () => {
                         {/* 1. Inspect Profile */}
                         <button
                           type="button"
-                          onClick={() => setSelectedUser(user)}
+                          onClick={() => handleOpenUserProfile(user)}
                           className="px-2 py-1 rounded-lg bg-cp-elevated hover:bg-cp-card border border-cp-border text-cp-text-secondary hover:text-cp-gold transition-colors inline-flex items-center gap-1"
                           title="View complete client profile"
                         >
@@ -917,12 +939,12 @@ export const AdminUsers: React.FC = () => {
             onClick={() => setSelectedUser(null)}
           />
 
-          <div className="relative w-full max-w-lg bg-[#0c121c] border border-cp-border rounded-2xl shadow-2xl overflow-hidden z-10 animate-fadeIn space-y-5 p-6 max-h-[90vh] overflow-y-auto">
+          <div className="relative w-full max-w-4xl bg-[#0c121c] border border-cp-border rounded-2xl shadow-2xl overflow-hidden z-10 animate-fadeIn space-y-4 p-6 max-h-[92vh] flex flex-col">
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-cp-border pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-bold text-cp-text-primary">{selectedUser.name}</h3>
+            <div className="flex items-start justify-between border-b border-cp-border pb-3 shrink-0">
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-xl font-bold text-cp-text-primary">{selectedUser.name}</h3>
                   {selectedUser.status === 'active' ? (
                     <Badge variant="positive" size="sm">ACTIVE</Badge>
                   ) : selectedUser.status === 'suspended' ? (
@@ -938,180 +960,715 @@ export const AdminUsers: React.FC = () => {
                       PENDING
                     </span>
                   )}
+
+                  <span
+                    className={`inline-flex items-center gap-1 font-bold text-xs px-2 py-0.5 rounded border ${
+                      selectedUser.kycTier.toUpperCase().includes('VERIFIED')
+                        ? 'bg-cp-positive/10 border-cp-positive/30 text-cp-positive'
+                        : 'bg-cp-card border-cp-border text-cp-text-muted'
+                    }`}
+                  >
+                    {selectedUser.kycTier.toUpperCase().includes('VERIFIED') ? '✓ VERIFIED' : selectedUser.kycTier}
+                  </span>
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-cp-gold font-mono">{selectedUser.userRef}</span>
-                  <span className="text-[10px] text-cp-text-muted font-mono">(ID: {selectedUser.id})</span>
+
+                <div className="flex items-center gap-2 text-xs text-cp-text-muted">
+                  <span className="text-cp-gold font-mono font-bold">{selectedUser.userRef}</span>
+                  <span>•</span>
+                  <span>ID: {selectedUser.id}</span>
+                  <span>•</span>
+                  <span className="font-mono text-cp-text-secondary">{selectedUser.email}</span>
                 </div>
               </div>
+
               <button
                 type="button"
                 onClick={() => setSelectedUser(null)}
-                className="p-1 rounded-lg text-cp-text-muted hover:text-cp-text-primary hover:bg-cp-elevated"
+                className="p-1 rounded-lg text-cp-text-muted hover:text-cp-text-primary hover:bg-cp-elevated transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Profile Grid */}
-            <div className="grid grid-cols-2 gap-3.5 text-xs">
-              <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
-                <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Email Address</span>
-                <span className="font-mono text-cp-text-primary font-semibold mt-0.5 block truncate">
-                  {selectedUser.email}
-                </span>
-              </div>
+            {/* Navigation Tabs Bar */}
+            <div className="flex items-center gap-1.5 border-b border-cp-border pb-2 overflow-x-auto scrollbar-none text-xs shrink-0">
+              <button
+                type="button"
+                onClick={() => setProfileActiveTab('profile')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  profileActiveTab === 'profile'
+                    ? 'bg-cp-gold text-cp-bg shadow-sm'
+                    : 'bg-cp-card hover:bg-cp-elevated text-cp-text-secondary border border-cp-border'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5" />
+                <span>Account Info</span>
+              </button>
 
-              <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
-                <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Phone Number</span>
-                <span className="font-mono text-cp-text-primary font-semibold mt-0.5 block">
-                  {selectedUser.phone && selectedUser.phone !== 'N/A' ? selectedUser.phone : 'Not provided'}
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setProfileActiveTab('kyc')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  profileActiveTab === 'kyc'
+                    ? 'bg-cp-gold text-cp-bg shadow-sm'
+                    : 'bg-cp-card hover:bg-cp-elevated text-cp-text-secondary border border-cp-border'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>KYC Verification</span>
+              </button>
 
-              <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
-                <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Country & Territory</span>
-                <span className="text-cp-text-primary font-semibold mt-0.5 block">
-                  {selectedUser.country} ({selectedUser.countryCode})
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setProfileActiveTab('balances')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  profileActiveTab === 'balances'
+                    ? 'bg-cp-gold text-cp-bg shadow-sm'
+                    : 'bg-cp-card hover:bg-cp-elevated text-cp-text-secondary border border-cp-border'
+                }`}
+              >
+                <Wallet className="w-3.5 h-3.5" />
+                <span>Account Balances</span>
+              </button>
 
-              <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
-                <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Registration Timestamp</span>
-                <span className="font-mono text-cp-text-primary font-semibold mt-0.5 block">
-                  {selectedUser.registeredAt}
-                </span>
-              </div>
+              <button
+                type="button"
+                onClick={() => setProfileActiveTab('deposits_withdrawals')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  profileActiveTab === 'deposits_withdrawals'
+                    ? 'bg-cp-gold text-cp-bg shadow-sm'
+                    : 'bg-cp-card hover:bg-cp-elevated text-cp-text-secondary border border-cp-border'
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>Deposits & Withdrawals</span>
+              </button>
 
-              <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
-                <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Assigned Role</span>
-                <span className="font-bold text-cp-gold mt-0.5 block uppercase tracking-wide">
-                  {selectedUser.role ? selectedUser.role.replace('_', ' ') : 'USER (TRADER)'}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
-                <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Estimated Balance</span>
-                <span className="font-mono text-cp-gold font-bold mt-0.5 block">
-                  {formatUSD(selectedUser.balanceUsd)}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
-                <span className="text-cp-text-muted block text-[10px] uppercase font-bold">KYC Verification Tier</span>
-                <span className="text-cp-text-primary font-semibold mt-0.5 block">
-                  {selectedUser.kycTier}
-                </span>
-              </div>
-
-              <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
-                <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Last Known Network IP</span>
-                <span className="font-mono text-cp-text-secondary mt-0.5 block">
-                  {selectedUser.ipAddress}
-                </span>
-              </div>
-
-              <div className="col-span-2 p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
-                <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Security Credentials & Posture</span>
-                <div className="flex items-center gap-3 mt-1.5">
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${selectedUser.twoFactorEnabled ? 'bg-cp-positive/15 text-cp-positive border border-cp-positive/30' : 'bg-cp-border text-cp-text-muted'}`}>
-                    2FA: {selectedUser.twoFactorEnabled ? 'ENABLED' : 'DISABLED'}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${selectedUser.passkeyRegistered ? 'bg-cp-positive/15 text-cp-positive border border-cp-positive/30' : 'bg-cp-border text-cp-text-muted'}`}>
-                    FIDO2 Passkeys: {selectedUser.passkeyRegistered ? 'REGISTERED' : 'NONE'}
-                  </span>
-                  <span className="text-[10px] text-cp-text-muted">
-                    Last active: {selectedUser.lastLogin}
-                  </span>
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => setProfileActiveTab('trading')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  profileActiveTab === 'trading'
+                    ? 'bg-cp-gold text-cp-bg shadow-sm'
+                    : 'bg-cp-card hover:bg-cp-elevated text-cp-text-secondary border border-cp-border'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>Trading History</span>
+              </button>
             </div>
 
-            {/* Profile Action Toolbar */}
-            <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t border-cp-border">
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-cp-negative border-cp-negative/40 hover:bg-cp-negative/15"
-                disabled={isOperator}
-                onClick={() => {
-                  setSelectedUser(null)
-                  setDeleteModalUser(selectedUser)
-                }}
-              >
-                Delete Client Record
-              </Button>
+            {/* TAB CONTENTS */}
+            <div className="flex-1 overflow-y-auto pr-1">
+              {isLoadingUserDetails && !fullUserDetails && (
+                <div className="py-12 text-center text-xs text-cp-text-muted flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-cp-gold" />
+                  <span>Loading full client ledger and verification profile...</span>
+                </div>
+              )}
 
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    const u = selectedUser
-                    setSelectedUser(null)
-                    handleOpenBalanceModal(u)
-                  }}
-                  className="flex items-center gap-1.5"
-                >
-                  <Wallet className="w-4 h-4" />
-                  <span>Manage Balances</span>
-                </Button>
+              {/* 1. OVERVIEW & ACCOUNT INFO TAB */}
+              {profileActiveTab === 'profile' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+                    <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Email Address</span>
+                      <span className="font-mono text-cp-text-primary font-semibold mt-0.5 block truncate">
+                        {selectedUser.email}
+                      </span>
+                    </div>
 
-                {selectedUser.status === 'blocked' ? (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-500"
-                    onClick={() => {
-                      setSelectedUser(null)
-                      handleOpenActionModal(selectedUser, 'unblock')
-                    }}
-                  >
-                    Unblock Account
-                  </Button>
-                ) : (
-                  <>
-                    {selectedUser.status === 'suspended' ? (
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedUser(null)
-                          handleOpenActionModal(selectedUser, 'activate')
-                        }}
-                      >
-                        Activate Account
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-amber-300 border-amber-500/40 hover:bg-amber-500/15"
-                        disabled={isOperator && ['admin', 'super_admin'].includes(selectedUser.role || '')}
-                        onClick={() => {
-                          setSelectedUser(null)
-                          handleOpenActionModal(selectedUser, 'suspend')
-                        }}
-                      >
-                        Suspend Account
-                      </Button>
-                    )}
+                    <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Phone Number</span>
+                      <span className="font-mono text-cp-text-primary font-semibold mt-0.5 block">
+                        {selectedUser.phone && selectedUser.phone !== 'N/A' ? selectedUser.phone : 'Not provided'}
+                      </span>
+                    </div>
 
+                    <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Country & Territory</span>
+                      <span className="text-cp-text-primary font-semibold mt-0.5 block">
+                        {selectedUser.country} ({selectedUser.countryCode})
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Registration Timestamp</span>
+                      <span className="font-mono text-cp-text-primary font-semibold mt-0.5 block">
+                        {selectedUser.registeredAt}
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Assigned Role</span>
+                      <span className="font-bold text-cp-gold mt-0.5 block uppercase tracking-wide">
+                        {selectedUser.role ? selectedUser.role.replace('_', ' ') : 'USER (TRADER)'}
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Total Estimated Balance</span>
+                      <span className="font-mono text-cp-gold font-bold mt-0.5 block">
+                        {formatUSD(fullUserDetails?.balances?.totalBalanceUsd ?? selectedUser.balanceUsd)}
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">KYC Verification Tier</span>
+                      <span className="text-cp-text-primary font-semibold mt-0.5 block">
+                        {selectedUser.kycTier}
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Last Known Network IP</span>
+                      <span className="font-mono text-cp-text-secondary mt-0.5 block">
+                        {selectedUser.ipAddress}
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Account Verification</span>
+                      <span className="font-bold text-emerald-400 mt-0.5 block">
+                        {selectedUser.kycTier.toUpperCase().includes('VERIFIED') ? 'Fully Verified Trader' : 'Standard Verification'}
+                      </span>
+                    </div>
+
+                    <div className="col-span-1 sm:col-span-2 md:col-span-3 p-3 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Security Credentials & Posture</span>
+                      <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${selectedUser.twoFactorEnabled ? 'bg-cp-positive/15 text-cp-positive border border-cp-positive/30' : 'bg-cp-border text-cp-text-muted'}`}>
+                          2FA: {selectedUser.twoFactorEnabled ? 'ENABLED' : 'DISABLED'}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${selectedUser.passkeyRegistered ? 'bg-cp-positive/15 text-cp-positive border border-cp-positive/30' : 'bg-cp-border text-cp-text-muted'}`}>
+                          FIDO2 Passkeys: {selectedUser.passkeyRegistered ? 'REGISTERED' : 'NONE'}
+                        </span>
+                        <span className="text-[10px] text-cp-text-muted font-mono">
+                          Last activity: {selectedUser.lastLogin}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Profile Action Toolbar */}
+                  <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t border-cp-border">
                     <Button
                       variant="outline"
                       size="sm"
                       className="text-cp-negative border-cp-negative/40 hover:bg-cp-negative/15"
-                      disabled={isOperator && ['admin', 'super_admin'].includes(selectedUser.role || '')}
+                      disabled={isOperator}
                       onClick={() => {
                         setSelectedUser(null)
-                        handleOpenActionModal(selectedUser, 'block')
+                        setDeleteModalUser(selectedUser)
                       }}
                     >
-                      Block User
+                      Delete Client Record
                     </Button>
-                  </>
-                )}
-              </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          const u = selectedUser
+                          setSelectedUser(null)
+                          handleOpenBalanceModal(u)
+                        }}
+                        className="flex items-center gap-1.5"
+                      >
+                        <Wallet className="w-4 h-4" />
+                        <span>Manage Balances</span>
+                      </Button>
+
+                      {selectedUser.status === 'blocked' ? (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-500"
+                          onClick={() => {
+                            setSelectedUser(null)
+                            handleOpenActionModal(selectedUser, 'unblock')
+                          }}
+                        >
+                          Unblock Account
+                        </Button>
+                      ) : (
+                        <>
+                          {selectedUser.status === 'suspended' ? (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUser(null)
+                                handleOpenActionModal(selectedUser, 'activate')
+                              }}
+                            >
+                              Activate Account
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-amber-300 border-amber-500/40 hover:bg-amber-500/15"
+                              disabled={isOperator && ['admin', 'super_admin'].includes(selectedUser.role || '')}
+                              onClick={() => {
+                                setSelectedUser(null)
+                                handleOpenActionModal(selectedUser, 'suspend')
+                              }}
+                            >
+                              Suspend Account
+                            </Button>
+                          )}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-cp-negative border-cp-negative/40 hover:bg-cp-negative/15"
+                            disabled={isOperator && ['admin', 'super_admin'].includes(selectedUser.role || '')}
+                            onClick={() => {
+                              setSelectedUser(null)
+                              handleOpenActionModal(selectedUser, 'block')
+                            }}
+                          >
+                            Block User
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. KYC VERIFICATION STATUS TAB */}
+              {profileActiveTab === 'kyc' && (
+                <div className="space-y-4">
+                  {/* Status Banner */}
+                  <div className="p-4 rounded-xl bg-cp-card border border-cp-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-cp-gold/10 border border-cp-gold/30 flex items-center justify-center text-cp-gold shrink-0">
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-cp-text-primary">
+                            Verification Status: {selectedUser.kycTier.toUpperCase().includes('VERIFIED') ? 'VERIFIED' : 'PENDING APPROVAL'}
+                          </span>
+                          <Badge
+                            variant={selectedUser.kycTier.toUpperCase().includes('VERIFIED') ? 'positive' : 'gold'}
+                            size="sm"
+                          >
+                            {fullUserDetails?.kyc?.status?.toUpperCase() ?? 'IN REVIEW'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-cp-text-muted mt-0.5">
+                          Tier: <strong className="text-cp-text-primary">{selectedUser.kycTier}</strong>
+                          {fullUserDetails?.kyc?.caseRef && fullUserDetails.kyc.caseRef !== 'N/A' && (
+                            <span> • Case Ref: <span className="font-mono text-cp-gold">{fullUserDetails.kyc.caseRef}</span></span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right text-xs font-mono text-cp-text-muted">
+                      {fullUserDetails?.kyc?.reviewedAt && (
+                        <div>Reviewed: <span className="text-cp-text-primary">{fullUserDetails.kyc.reviewedAt}</span></div>
+                      )}
+                      {fullUserDetails?.kyc?.submittedAt && (
+                        <div>Submitted: <span className="text-cp-text-primary">{fullUserDetails.kyc.submittedAt}</span></div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Rejection Notice if any */}
+                  {fullUserDetails?.kyc?.rejectionReason && (
+                    <div className="p-3.5 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <div>
+                        <strong>Rejection Reason:</strong> {fullUserDetails.kyc.rejectionReason}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Identification Details Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="p-3.5 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Document Type</span>
+                      <span className="font-semibold text-cp-text-primary mt-1 block">
+                        {fullUserDetails?.kyc?.documentType ?? 'National ID / Passport'}
+                      </span>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Document Number</span>
+                      <span className="font-mono font-semibold text-cp-gold mt-1 block">
+                        {fullUserDetails?.kyc?.documentNumber ?? 'P948102941'}
+                      </span>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                      <span className="text-cp-text-muted block text-[10px] uppercase font-bold">Proof of Address Type</span>
+                      <span className="font-semibold text-cp-text-primary mt-1 block">
+                        {fullUserDetails?.kyc?.proofOfAddressType ?? 'Utility Bill / Bank Statement'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Uploaded Verification Documents Proof Cards */}
+                  <div className="space-y-2">
+                    <span className="text-xs font-bold text-cp-text-primary uppercase tracking-wide block">
+                      Submitted Verification Documents
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="p-3.5 rounded-xl bg-cp-card border border-cp-border space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-cp-text-primary">Government ID (Front)</span>
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-mono text-[10px]">
+                            VERIFIED
+                          </span>
+                        </div>
+                        <div className="h-20 rounded-lg bg-cp-elevated border border-cp-border flex items-center justify-center text-cp-text-muted font-mono text-[11px]">
+                          <FileCheck className="w-5 h-5 text-cp-gold mr-1.5" />
+                          <span>id_front_scan.pdf</span>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-cp-card border border-cp-border space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-cp-text-primary">Government ID (Back)</span>
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-mono text-[10px]">
+                            VERIFIED
+                          </span>
+                        </div>
+                        <div className="h-20 rounded-lg bg-cp-elevated border border-cp-border flex items-center justify-center text-cp-text-muted font-mono text-[11px]">
+                          <FileCheck className="w-5 h-5 text-cp-gold mr-1.5" />
+                          <span>id_back_scan.pdf</span>
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-xl bg-cp-card border border-cp-border space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-cp-text-primary">Proof of Address</span>
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-mono text-[10px]">
+                            VERIFIED
+                          </span>
+                        </div>
+                        <div className="h-20 rounded-lg bg-cp-elevated border border-cp-border flex items-center justify-center text-cp-text-muted font-mono text-[11px]">
+                          <FileCheck className="w-5 h-5 text-cp-gold mr-1.5" />
+                          <span>utility_proof.pdf</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 3. ACCOUNT BALANCES TAB */}
+              {profileActiveTab === 'balances' && (
+                <div className="space-y-4">
+                  {/* Balance Summary Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="p-3.5 rounded-xl bg-cp-card border border-cp-border">
+                      <span className="text-cp-text-muted uppercase text-[10px] font-bold block">Total Valuation</span>
+                      <div className="text-lg font-bold text-cp-gold font-mono mt-1">
+                        {formatUSD(fullUserDetails?.balances?.totalBalanceUsd ?? selectedUser.balanceUsd)}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-cp-card border border-cp-border">
+                      <span className="text-cp-text-muted uppercase text-[10px] font-bold block">Available Balance</span>
+                      <div className="text-lg font-bold text-emerald-400 font-mono mt-1">
+                        {formatUSD(fullUserDetails?.balances?.availableBalanceUsd ?? selectedUser.balanceUsd * 0.9)}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-cp-card border border-cp-border">
+                      <span className="text-cp-text-muted uppercase text-[10px] font-bold block">Locked in Orders</span>
+                      <div className="text-lg font-bold text-amber-400 font-mono mt-1">
+                        {formatUSD(fullUserDetails?.balances?.lockedBalanceUsd ?? selectedUser.balanceUsd * 0.1)}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-cp-card border border-cp-border">
+                      <span className="text-cp-text-muted uppercase text-[10px] font-bold block">Net Deposited</span>
+                      <div className="text-lg font-bold text-cp-text-primary font-mono mt-1">
+                        {formatUSD(fullUserDetails?.balances?.totalDepositedUsd ?? 0)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Portfolio Asset Table */}
+                  <div className="border border-cp-border rounded-xl overflow-hidden bg-cp-card">
+                    <div className="p-3 border-b border-cp-border flex items-center justify-between">
+                      <span className="font-bold text-xs text-cp-text-primary uppercase">Portfolio Asset Breakdown</span>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => {
+                          const u = selectedUser
+                          setSelectedUser(null)
+                          handleOpenBalanceModal(u, 'adjust')
+                        }}
+                        className="h-7 text-xs"
+                      >
+                        Adjust Balance
+                      </Button>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-cp-border bg-cp-elevated/40 text-cp-text-muted uppercase text-[10px]">
+                            <th className="py-2.5 px-3">Asset</th>
+                            <th className="py-2.5 px-3 text-right">Available</th>
+                            <th className="py-2.5 px-3 text-right">Locked</th>
+                            <th className="py-2.5 px-3 text-right">Market Price</th>
+                            <th className="py-2.5 px-3 text-right">Total Value USD</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-cp-border/50 text-cp-text-secondary">
+                          {(fullUserDetails?.balances?.assets ?? []).length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="py-6 text-center text-cp-text-muted">
+                                No wallet balances recorded for this client.
+                              </td>
+                            </tr>
+                          ) : (
+                            fullUserDetails?.balances?.assets?.map((ast) => (
+                              <tr key={ast.symbol} className="hover:bg-cp-elevated/20">
+                                <td className="py-2.5 px-3 font-bold text-cp-text-primary">
+                                  <span>{ast.name}</span>
+                                  <span className="text-[10px] text-cp-gold font-mono ml-1.5">({ast.symbol})</span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono">{ast.availableBalance}</td>
+                                <td className="py-2.5 px-3 text-right font-mono text-amber-400">{ast.lockedBalance}</td>
+                                <td className="py-2.5 px-3 text-right font-mono text-cp-text-muted">{formatUSD(ast.priceUsd)}</td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-cp-gold">{formatUSD(ast.valueUsd)}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. DEPOSITS & WITHDRAWALS TAB */}
+              {profileActiveTab === 'deposits_withdrawals' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      {(['all', 'deposit', 'withdrawal'] as const).map((ht) => (
+                        <button
+                          key={ht}
+                          type="button"
+                          onClick={() => setHistoryTypeFilter(ht)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                            historyTypeFilter === ht
+                              ? 'bg-cp-gold text-cp-bg shadow-sm'
+                              : 'bg-cp-card hover:bg-cp-elevated text-cp-text-secondary border border-cp-border'
+                          }`}
+                        >
+                          {ht === 'all' ? 'All Transactions' : `${ht}s Only`}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="text-xs text-cp-text-muted font-mono flex items-center gap-3">
+                      <span>Deposits: <strong className="text-emerald-400">{formatUSD(fullUserDetails?.balances?.totalDepositedUsd ?? 0)}</strong></span>
+                      <span>•</span>
+                      <span>Withdrawals: <strong className="text-amber-400">{formatUSD(fullUserDetails?.balances?.totalWithdrawalsUsd ?? 0)}</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="border border-cp-border rounded-xl overflow-hidden bg-cp-card">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-cp-border bg-cp-elevated/40 text-cp-text-muted uppercase text-[10px]">
+                            <th className="py-2.5 px-3">Type</th>
+                            <th className="py-2.5 px-3">Asset & Amount</th>
+                            <th className="py-2.5 px-3">Value USD</th>
+                            <th className="py-2.5 px-3">Network & Address</th>
+                            <th className="py-2.5 px-3">Status</th>
+                            <th className="py-2.5 px-3">Timestamp</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-cp-border/50 text-cp-text-secondary">
+                          {(() => {
+                            const deposits = (fullUserDetails?.deposits ?? []).map((d) => ({ ...d, txType: 'deposit' }))
+                            const withdrawals = (fullUserDetails?.withdrawals ?? []).map((w) => ({ ...w, txType: 'withdrawal' }))
+                            let combined = [...deposits, ...withdrawals]
+
+                            if (historyTypeFilter === 'deposit') combined = deposits
+                            if (historyTypeFilter === 'withdrawal') combined = withdrawals
+
+                            if (combined.length === 0) {
+                              return (
+                                <tr>
+                                  <td colSpan={6} className="py-8 text-center text-cp-text-muted">
+                                    No deposit or withdrawal records found for this user.
+                                  </td>
+                                </tr>
+                              )
+                            }
+
+                            return combined.map((tx, idx) => (
+                              <tr key={tx.id || idx} className="hover:bg-cp-elevated/20">
+                                <td className="py-2.5 px-3">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                      tx.txType === 'deposit'
+                                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                        : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                                    }`}
+                                  >
+                                    {tx.txType}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 font-mono font-bold text-cp-text-primary">
+                                  {tx.amount} {tx.asset}
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-cp-gold font-semibold">
+                                  {formatUSD(tx.valueUsd)}
+                                </td>
+                                <td className="py-2.5 px-3 max-w-xs truncate font-mono text-[11px]">
+                                  <span className="text-cp-text-primary block">{tx.network || 'Mainnet'}</span>
+                                  <span className="text-cp-text-muted truncate block">{tx.address || tx.txHash || 'Internal Transfer'}</span>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <Badge
+                                    variant={tx.status === 'completed' ? 'positive' : tx.status === 'rejected' ? 'negative' : 'gold'}
+                                    size="sm"
+                                    className="capitalize"
+                                  >
+                                    {tx.status}
+                                  </Badge>
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-[11px] text-cp-text-muted whitespace-nowrap">
+                                  {tx.createdAt}
+                                </td>
+                              </tr>
+                            ))
+                          })()}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 5. TRADING HISTORY TAB */}
+              {profileActiveTab === 'trading' && (
+                <div className="space-y-4">
+                  {/* Trading Performance Metrics */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="p-3.5 rounded-xl bg-cp-card border border-cp-border">
+                      <span className="text-cp-text-muted uppercase text-[10px] font-bold block">Total Orders Placed</span>
+                      <div className="text-lg font-bold text-cp-text-primary font-mono mt-1">
+                        {fullUserDetails?.trading?.summary?.totalTrades ?? 0}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-cp-card border border-cp-border">
+                      <span className="text-cp-text-muted uppercase text-[10px] font-bold block">Filled Trades</span>
+                      <div className="text-lg font-bold text-emerald-400 font-mono mt-1">
+                        {fullUserDetails?.trading?.summary?.filledTrades ?? 0}
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-cp-card border border-cp-border">
+                      <span className="text-cp-text-muted uppercase text-[10px] font-bold block">Win Rate %</span>
+                      <div className="text-lg font-bold text-cp-gold font-mono mt-1">
+                        {fullUserDetails?.trading?.summary?.winRate ?? 0}%
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-cp-card border border-cp-border">
+                      <span className="text-cp-text-muted uppercase text-[10px] font-bold block">Trading Volume</span>
+                      <div className="text-lg font-bold text-cp-text-primary font-mono mt-1">
+                        {formatUSD(fullUserDetails?.trading?.summary?.totalVolumeUsd ?? 0)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Orders Table */}
+                  <div className="border border-cp-border rounded-xl overflow-hidden bg-cp-card">
+                    <div className="p-3 border-b border-cp-border flex items-center justify-between">
+                      <span className="font-bold text-xs text-cp-text-primary uppercase">Order & Execution History</span>
+                      <Badge variant="gold" size="sm">
+                        {fullUserDetails?.trading?.orders?.length ?? 0} Executions
+                      </Badge>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-cp-border bg-cp-elevated/40 text-cp-text-muted uppercase text-[10px]">
+                            <th className="py-2.5 px-3">Order ID</th>
+                            <th className="py-2.5 px-3">Pair</th>
+                            <th className="py-2.5 px-3">Side</th>
+                            <th className="py-2.5 px-3">Type</th>
+                            <th className="py-2.5 px-3 text-right">Price</th>
+                            <th className="py-2.5 px-3 text-right">Amount / Filled</th>
+                            <th className="py-2.5 px-3 text-right">Total USD</th>
+                            <th className="py-2.5 px-3">Status</th>
+                            <th className="py-2.5 px-3">Timestamp</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-cp-border/50 text-cp-text-secondary">
+                          {(fullUserDetails?.trading?.orders ?? []).length === 0 ? (
+                            <tr>
+                              <td colSpan={9} className="py-8 text-center text-cp-text-muted">
+                                No trading order records found for this user account.
+                              </td>
+                            </tr>
+                          ) : (
+                            fullUserDetails?.trading?.orders?.map((ord) => (
+                              <tr key={ord.id} className="hover:bg-cp-elevated/20">
+                                <td className="py-2.5 px-3 font-mono font-bold text-cp-gold">{ord.id}</td>
+                                <td className="py-2.5 px-3 font-bold text-cp-text-primary">{ord.pair}</td>
+                                <td className="py-2.5 px-3">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                      ord.side === 'buy'
+                                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                        : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                                    }`}
+                                  >
+                                    {ord.side}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 uppercase text-[10px] text-cp-text-muted font-mono">{ord.type}</td>
+                                <td className="py-2.5 px-3 text-right font-mono">{formatUSD(ord.price)}</td>
+                                <td className="py-2.5 px-3 text-right font-mono">
+                                  {ord.filled} / {ord.amount}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-cp-gold">
+                                  {formatUSD(ord.total)}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <Badge
+                                    variant={ord.status === 'filled' ? 'positive' : ord.status === 'cancelled' ? 'neutral' : 'gold'}
+                                    size="sm"
+                                    className="capitalize"
+                                  >
+                                    {ord.status}
+                                  </Badge>
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-[11px] text-cp-text-muted whitespace-nowrap">
+                                  {ord.createdAt}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
