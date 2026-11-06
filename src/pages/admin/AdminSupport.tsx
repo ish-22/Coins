@@ -1,8 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import {
   Headphones,
   Search,
-  Eye,
   MessageSquare,
   Send,
   CheckCircle2,
@@ -10,84 +9,173 @@ import {
   X,
   User,
   ShieldCheck,
+  AlertCircle,
+  Archive,
+  RefreshCw,
+  Mail,
+  Filter,
 } from 'lucide-react'
-import { Card, CardContent } from '@/components/common/Card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { AdminSupportTicket } from '@/mock/adminData'
-import { adminService } from '@/services'
+import { AdminSupportTicket, AdminSupportMessage } from '@/mock/adminData'
+import { adminService } from '@/services/adminService'
 
 export const AdminSupport: React.FC = () => {
   const [tickets, setTickets] = useState<AdminSupportTicket[]>([])
+  const [metrics, setMetrics] = useState<{
+    totalTickets: number
+    unreadTotal: number
+    openCount: number
+    inProgressCount: number
+    waitingUserCount: number
+    resolvedCount: number
+    closedCount: number
+  }>({
+    totalTickets: 0,
+    unreadTotal: 0,
+    openCount: 0,
+    inProgressCount: 0,
+    waitingUserCount: 0,
+    resolvedCount: 0,
+    closedCount: 0,
+  })
+
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'in_progress' | 'waiting_user' | 'resolved'>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'unread' | 'open' | 'in_progress' | 'waiting_user' | 'resolved' | 'closed'>('all')
   const [selectedTicket, setSelectedTicket] = useState<AdminSupportTicket | null>(null)
+  const selectedTicketIdRef = useRef<string | null>(null)
   const [replyMessage, setReplyMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const filteredTickets = useMemo(() => {
-    return tickets.filter((t) => {
-      const matchSearch =
-        t.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.ticketRef.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        t.userEmail.toLowerCase().includes(searchQuery.toLowerCase())
+  useEffect(() => {
+    selectedTicketIdRef.current = selectedTicket?.id ?? null
+  }, [selectedTicket])
 
-      const matchStatus = statusFilter === 'all' || t.status === statusFilter
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg)
+    setTimeout(() => setToastMessage(null), 3500)
+  }
 
-      return matchSearch && matchStatus
-    })
-  }, [tickets, searchQuery, statusFilter])
+  // Fetch tickets from API with real-time sync
+  const fetchLiveTickets = async (silent = false) => {
+    try {
+      if (!silent) setIsLoading(true)
+      const res = await adminService.getSupportTickets({
+        q: searchQuery.trim() || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+      })
 
-  const handleStatusChange = (ticketId: string, newStatus: AdminSupportTicket['status']) => {
-    setTickets((prev) =>
-      prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t))
-    )
-    if (selectedTicket?.id === ticketId) {
-      setSelectedTicket((prev) => (prev ? { ...prev, status: newStatus } : null))
+      if (res && res.tickets) {
+        setTickets(res.tickets)
+        if (res.metrics) {
+          setMetrics(res.metrics)
+        }
+
+        // Live real-time update of selected conversation if open
+        if (selectedTicketIdRef.current) {
+          const currentId = selectedTicketIdRef.current
+          const updated = res.tickets.find((t) => t.id === currentId)
+          if (updated) {
+            setSelectedTicket(updated)
+          }
+        }
+      }
+      setLoadError(null)
+    } catch (error: any) {
+      if (!silent) {
+        setLoadError(error?.response?.data?.message || 'Unable to sync support desk from backend.')
+      }
+    } finally {
+      if (!silent) setIsLoading(false)
     }
   }
 
+  // Real-time polling every 3 seconds
   useEffect(() => {
     let isMounted = true
-    const loadTickets = async () => {
-      try {
-        setIsLoading(true)
-        setLoadError(null)
-        const liveTickets = await adminService.getSupportTickets()
-        if (isMounted) setTickets(liveTickets)
-      } catch (error: any) {
-        if (isMounted) {
-          setLoadError(error?.response?.data?.message || 'Unable to load support tickets from the backend.')
-          setTickets([])
-        }
-      } finally {
-        if (isMounted) setIsLoading(false)
-      }
-    }
+    fetchLiveTickets(false)
 
-    loadTickets()
+    const intervalId = setInterval(() => {
+      if (isMounted) {
+        fetchLiveTickets(true)
+      }
+    }, 3000)
+
     return () => {
       isMounted = false
+      clearInterval(intervalId)
     }
-  }, [])
+  }, [searchQuery, statusFilter])
+
+  // Auto scroll when message thread changes
+  useEffect(() => {
+    if (selectedTicket) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [selectedTicket?.messages?.length])
+
+  // Open ticket handler: marks user messages as read
+  const handleOpenTicket = async (t: AdminSupportTicket) => {
+    setSelectedTicket(t)
+    if ((t.unreadCount ?? 0) > 0) {
+      try {
+        await adminService.markSupportTicketRead(t.id)
+        // locally decrement unread
+        setTickets((prev) =>
+          prev.map((item) => (item.id === t.id ? { ...item, unreadCount: 0 } : item))
+        )
+        setMetrics((prev) => ({
+          ...prev,
+          unreadTotal: Math.max(0, prev.unreadTotal - (t.unreadCount || 0)),
+        }))
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const handleStatusChange = async (ticketId: string, newStatus: AdminSupportTicket['status']) => {
+    setIsUpdatingStatus(true)
+    try {
+      await adminService.updateTicketStatus(ticketId, newStatus)
+      setTickets((prev) =>
+        prev.map((t) => (t.id === ticketId ? { ...t, status: newStatus } : t))
+      )
+      if (selectedTicket?.id === ticketId) {
+        setSelectedTicket((prev) => (prev ? { ...prev, status: newStatus } : null))
+      }
+      triggerToast(`Conversation ${selectedTicket?.ticketRef || ticketId} updated to ${newStatus}.`)
+      fetchLiveTickets(true)
+    } catch (err: any) {
+      triggerToast(err?.response?.data?.message || 'Failed to update ticket status.')
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
 
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!replyMessage.trim() || !selectedTicket) return
+    if (!replyMessage.trim() || !selectedTicket || isSending) return
 
     setIsSending(true)
     try {
       const response = await adminService.replySupportTicket(selectedTicket.id, replyMessage.trim())
-      const newMsg = {
+      const newMsg: AdminSupportMessage = {
         id: String(response?.reply?.id ?? `msg-${Date.now()}`),
-        sender: 'agent' as const,
-        senderName: 'Chief Operator (Staff)',
+        sender: 'agent',
+        senderName: response?.reply?.senderName || 'CoinPlus Support',
         message: replyMessage.trim(),
-        timestamp: response?.reply?.created_at ? new Date(response.reply.created_at).toISOString().replace('T', ' ').slice(0, 16) : new Date().toISOString().replace('T', ' ').slice(0, 16),
+        timestamp: response?.reply?.timestamp || 'Just now',
+        isRead: false,
       }
+
+      const updatedMessages = [...selectedTicket.messages, newMsg]
 
       setTickets((prev) =>
         prev.map((t) =>
@@ -95,8 +183,9 @@ export const AdminSupport: React.FC = () => {
             ? {
                 ...t,
                 status: 'waiting_user',
-                updatedAt: newMsg.timestamp,
-                messages: [...t.messages, newMsg],
+                unreadCount: 0,
+                updatedAt: 'Just now',
+                messages: updatedMessages,
               }
             : t
         )
@@ -107,13 +196,18 @@ export const AdminSupport: React.FC = () => {
           ? {
               ...prev,
               status: 'waiting_user',
-              updatedAt: newMsg.timestamp,
-              messages: [...prev.messages, newMsg],
+              unreadCount: 0,
+              updatedAt: 'Just now',
+              messages: updatedMessages,
             }
           : null
       )
 
       setReplyMessage('')
+      triggerToast('Reply dispatched instantly to user.')
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 100)
     } catch (error: any) {
       setLoadError(error?.response?.data?.message || 'The support agent reply could not be posted to the backend.')
     } finally {
@@ -121,35 +215,120 @@ export const AdminSupport: React.FC = () => {
     }
   }
 
+  const getStatusBadge = (status: AdminSupportTicket['status']) => {
+    switch (status) {
+      case 'open':
+        return <Badge variant="neutral" size="sm" withDot>Open</Badge>
+      case 'in_progress':
+        return <Badge variant="gold" size="sm" withDot pulseDot>In Progress</Badge>
+      case 'waiting_user':
+        return <Badge variant="gold" size="sm" withDot>Waiting for User</Badge>
+      case 'resolved':
+        return <Badge variant="positive" size="sm" withDot>Resolved</Badge>
+      case 'closed':
+        return <Badge variant="neutral" size="sm" withDot>Closed</Badge>
+      default:
+        return <Badge variant="neutral" size="sm">{status}</Badge>
+    }
+  }
+
+  const getPriorityBadge = (priority: AdminSupportTicket['priority']) => {
+    switch (priority) {
+      case 'urgent':
+        return <Badge variant="negative" size="sm">Urgent</Badge>
+      case 'high':
+        return <Badge variant="gold" size="sm">High</Badge>
+      case 'medium':
+        return <Badge variant="neutral" size="sm">Medium</Badge>
+      case 'low':
+        return <Badge variant="neutral" size="sm">Low</Badge>
+      default:
+        return null
+    }
+  }
+
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-cp-elevated border border-cp-gold text-cp-text-primary shadow-2xl animate-in slide-in-from-bottom duration-200">
+          <CheckCircle2 className="w-4 h-4 text-cp-gold shrink-0" />
+          <span className="text-xs font-semibold">{toastMessage}</span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-cp-text-primary tracking-tight">
-            Customer Support Desk & Ticket Queue
-          </h1>
-          <p className="text-xs text-cp-text-muted mt-0.5">
-            Resolve customer inquiries, review simulated conversation threads, and dispatch staff responses
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl sm:text-3xl font-black text-cp-text-primary tracking-tight">
+              Real-Time Customer Support Desk
+            </h1>
+            <span className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              Live Sync
+            </span>
+          </div>
+          <p className="text-xs text-cp-text-muted mt-1">
+            Receive incoming customer messages in real time without refreshing, reply instantly, and manage multi-conversation queues.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="gold" size="sm">
-            Active Tickets: {tickets.filter((t) => t.status !== 'resolved').length}
-          </Badge>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => fetchLiveTickets(false)}
+            isLoading={isLoading}
+            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+          >
+            Refresh Desk
+          </Button>
         </div>
       </div>
 
-      {loadError && (
-        <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative">
-          {loadError}
-        </div>
-      )}
+      {/* Metrics Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <Card className="bg-[#0c121c] border-cp-border p-3.5 space-y-1">
+          <span className="text-[11px] font-semibold text-cp-text-muted uppercase">Total Tickets</span>
+          <div className="text-xl font-bold text-cp-text-primary font-mono">{metrics.totalTickets}</div>
+        </Card>
 
-      {isLoading && (
-        <div className="p-4 rounded-xl border border-cp-border bg-cp-card text-xs text-cp-text-muted">
-          Loading live support queue from the backend...
+        <Card className={`border-cp-border p-3.5 space-y-1 ${metrics.unreadTotal > 0 ? 'bg-amber-500/10 border-amber-500/40' : 'bg-[#0c121c]'}`}>
+          <span className="text-[11px] font-semibold text-amber-400 uppercase">Unread Messages</span>
+          <div className="text-xl font-bold text-amber-400 font-mono flex items-center gap-2">
+            <span>{metrics.unreadTotal}</span>
+            {metrics.unreadTotal > 0 && (
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            )}
+          </div>
+        </Card>
+
+        <Card className="bg-[#0c121c] border-cp-border p-3.5 space-y-1">
+          <span className="text-[11px] font-semibold text-cp-text-muted uppercase">Open</span>
+          <div className="text-xl font-bold text-sky-400 font-mono">{metrics.openCount}</div>
+        </Card>
+
+        <Card className="bg-[#0c121c] border-cp-border p-3.5 space-y-1">
+          <span className="text-[11px] font-semibold text-cp-text-muted uppercase">In Progress</span>
+          <div className="text-xl font-bold text-cp-gold font-mono">{metrics.inProgressCount}</div>
+        </Card>
+
+        <Card className="bg-[#0c121c] border-cp-border p-3.5 space-y-1">
+          <span className="text-[11px] font-semibold text-cp-text-muted uppercase">Waiting User</span>
+          <div className="text-xl font-bold text-cp-text-secondary font-mono">{metrics.waitingUserCount}</div>
+        </Card>
+
+        <Card className="bg-[#0c121c] border-cp-border p-3.5 space-y-1">
+          <span className="text-[11px] font-semibold text-cp-text-muted uppercase">Resolved</span>
+          <div className="text-xl font-bold text-emerald-400 font-mono">{metrics.resolvedCount + metrics.closedCount}</div>
+        </Card>
+      </div>
+
+      {loadError && (
+        <div className="p-3 rounded-xl bg-cp-negative/10 border border-cp-negative/30 text-xs text-cp-negative flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{loadError}</span>
         </div>
       )}
 
@@ -160,26 +339,39 @@ export const AdminSupport: React.FC = () => {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-cp-text-muted pointer-events-none" />
             <input
               type="text"
-              placeholder="Search by ticket ref, user name, email, or subject..."
+              placeholder="Search by User ID, Name, UID, Email, Ticket Ref, or Subject..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-[#141d2b] border border-cp-border rounded-xl pl-9 pr-3 py-2 text-xs text-cp-text-primary placeholder:text-cp-text-muted/60 focus:outline-none focus:border-cp-gold/60"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-cp-text-muted hover:text-cp-text-primary text-xs"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 overflow-x-auto text-xs pb-1 sm:pb-0 scrollbar-none">
-            {(['all', 'open', 'in_progress', 'waiting_user', 'resolved'] as const).map((st) => (
+            {(['all', 'unread', 'open', 'in_progress', 'waiting_user', 'resolved', 'closed'] as const).map((st) => (
               <button
                 key={st}
                 type="button"
                 onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1.5 rounded-lg border font-semibold transition-all capitalize ${
+                className={`px-3 py-1.5 rounded-lg border font-semibold transition-all capitalize whitespace-nowrap flex items-center gap-1.5 ${
                   statusFilter === st
                     ? 'bg-cp-gold text-cp-bg border-cp-gold'
                     : 'bg-cp-card hover:bg-cp-elevated text-cp-text-secondary border-cp-border'
                 }`}
               >
-                {st.replace('_', ' ')}
+                <span>{st.replace('_', ' ')}</span>
+                {st === 'unread' && metrics.unreadTotal > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[10px] font-bold">
+                    {metrics.unreadTotal}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -188,10 +380,10 @@ export const AdminSupport: React.FC = () => {
 
       {/* Tickets Table */}
       <Card className="bg-[#0c121c] border-cp-border overflow-hidden">
-        {filteredTickets.length === 0 ? (
+        {tickets.length === 0 ? (
           <div className="p-12 text-center text-xs text-cp-text-muted space-y-2">
             <Headphones className="w-8 h-8 text-cp-text-muted mx-auto" />
-            <p>No support tickets match the selected filters.</p>
+            <p>No support tickets match the selected filters or search query.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -199,8 +391,8 @@ export const AdminSupport: React.FC = () => {
               <thead>
                 <tr className="border-b border-cp-border bg-cp-elevated/40 text-cp-text-muted uppercase text-[10px] tracking-wider font-semibold">
                   <th className="py-3 px-4">Ref</th>
-                  <th className="py-3 px-4">User</th>
-                  <th className="py-3 px-4">Subject</th>
+                  <th className="py-3 px-4">User Details</th>
+                  <th className="py-3 px-4">Subject & Latest Message</th>
                   <th className="py-3 px-4">Category</th>
                   <th className="py-3 px-4">Priority</th>
                   <th className="py-3 px-4">Status</th>
@@ -209,77 +401,88 @@ export const AdminSupport: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-cp-border/50 text-cp-text-secondary">
-                {filteredTickets.map((t) => (
-                  <tr key={t.id} className="hover:bg-cp-elevated/30 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-cp-gold">
-                      {t.ticketRef}
-                    </td>
+                {tickets.map((t) => {
+                  const hasUnread = (t.unreadCount ?? 0) > 0
 
-                    <td className="py-3.5 px-4">
-                      <div>
-                        <span className="font-bold text-cp-text-primary block">{t.userName}</span>
-                        <span className="text-[10px] text-cp-text-muted font-mono block">{t.userEmail}</span>
-                      </div>
-                    </td>
+                  return (
+                    <tr
+                      key={t.id}
+                      className={`hover:bg-cp-elevated/30 transition-colors ${
+                        hasUnread ? 'bg-amber-500/5' : ''
+                      }`}
+                    >
+                      <td className="py-3.5 px-4 font-mono font-bold text-cp-gold whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span>{t.ticketRef}</span>
+                          {hasUnread && (
+                            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" title="Unread customer message" />
+                          )}
+                        </div>
+                      </td>
 
-                    <td className="py-3.5 px-4 max-w-xs">
-                      <span className="font-semibold text-cp-text-primary block truncate">{t.subject}</span>
-                      <span className="text-[10px] text-cp-text-muted">
-                        {t.messages.length} {t.messages.length === 1 ? 'message' : 'messages'}
-                      </span>
-                    </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-cp-text-primary">{t.userName}</span>
+                            <span className="font-mono text-[10px] px-1 py-0.2 rounded bg-cp-card border border-cp-border text-cp-gold">
+                              {t.userRef || `ID #${t.userId}`}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-cp-text-muted font-mono block">{t.userEmail}</span>
+                        </div>
+                      </td>
 
-                    <td className="py-3.5 px-4 uppercase text-[10px] font-mono font-medium text-cp-gold">
-                      {t.category}
-                    </td>
+                      <td className="py-3.5 px-4 max-w-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-cp-text-primary truncate block">{t.subject}</span>
+                          {hasUnread && (
+                            <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-black text-[9px] font-bold shrink-0">
+                              {t.unreadCount} NEW
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-cp-text-muted truncate block">
+                          {t.messages.length > 0 ? t.messages[t.messages.length - 1].message : 'No messages'}
+                        </span>
+                      </td>
 
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`font-semibold capitalize text-[11px] ${
-                          t.priority === 'urgent'
-                            ? 'text-cp-negative'
-                            : t.priority === 'high'
-                            ? 'text-amber-400'
-                            : 'text-cp-text-secondary'
-                        }`}
-                      >
-                        {t.priority}
-                      </span>
-                    </td>
+                      <td className="py-3.5 px-4 uppercase text-[10px] font-mono font-medium text-cp-gold whitespace-nowrap">
+                        {t.category}
+                      </td>
 
-                    <td className="py-3.5 px-4">
-                      <Badge
-                        variant={t.status === 'resolved' ? 'positive' : t.status === 'open' ? 'gold' : 'neutral'}
-                        size="sm"
-                        className="capitalize"
-                      >
-                        {t.status.replace('_', ' ')}
-                      </Badge>
-                    </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {getPriorityBadge(t.priority)}
+                      </td>
 
-                    <td className="py-3.5 px-4 font-mono text-[11px] text-cp-text-muted">
-                      {t.updatedAt}
-                    </td>
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        {getStatusBadge(t.status)}
+                      </td>
 
-                    <td className="py-3.5 px-4 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedTicket(t)}
-                        className="px-2.5 py-1 rounded-lg bg-cp-elevated hover:bg-cp-card border border-cp-border text-cp-text-secondary hover:text-cp-gold transition-colors inline-flex items-center gap-1"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span>Thread</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      <td className="py-3.5 px-4 font-mono text-[11px] text-cp-text-muted whitespace-nowrap">
+                        {t.updatedAt || t.createdAt}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <Button
+                          variant={hasUnread ? 'primary' : 'secondary'}
+                          size="sm"
+                          onClick={() => handleOpenTicket(t)}
+                          className="h-7 text-xs"
+                          leftIcon={<MessageSquare className="w-3.5 h-3.5" />}
+                        >
+                          Chat & Reply
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         )}
       </Card>
 
-      {/* TICKET DETAIL & REPLY CONVERSATION MODAL */}
+      {/* TICKET DETAIL & REAL-TIME REPLY CONVERSATION MODAL */}
       {selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
@@ -287,47 +490,53 @@ export const AdminSupport: React.FC = () => {
             onClick={() => setSelectedTicket(null)}
           />
 
-          <div className="relative w-full max-w-2xl bg-[#0c121c] border border-cp-border rounded-2xl shadow-2xl p-6 z-10 animate-fadeIn space-y-4 max-h-[90vh] flex flex-col">
+          <div className="relative w-full max-w-3xl bg-[#0c121c] border border-cp-border rounded-2xl shadow-2xl p-6 z-10 animate-fadeIn space-y-4 max-h-[92vh] flex flex-col">
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-cp-border pb-3 shrink-0">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-xs font-bold text-cp-gold">{selectedTicket.ticketRef}</span>
-                  <Badge
-                    variant={selectedTicket.status === 'resolved' ? 'positive' : selectedTicket.status === 'open' ? 'gold' : 'neutral'}
-                    size="sm"
-                    className="capitalize"
-                  >
-                    {selectedTicket.status.replace('_', ' ')}
-                  </Badge>
+                  {getStatusBadge(selectedTicket.status)}
+                  {getPriorityBadge(selectedTicket.priority)}
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-cp-elevated text-cp-text-muted border border-cp-border">
+                    {selectedTicket.category}
+                  </span>
                 </div>
                 <h3 className="text-base font-bold text-cp-text-primary">{selectedTicket.subject}</h3>
-                <span className="text-xs text-cp-text-muted">
-                  From: <strong>{selectedTicket.userName}</strong> ({selectedTicket.userEmail})
-                </span>
+                <div className="flex flex-wrap items-center gap-3 text-xs text-cp-text-muted">
+                  <span>
+                    User: <strong>{selectedTicket.userName}</strong> ({selectedTicket.userEmail})
+                  </span>
+                  <span>•</span>
+                  <span className="font-mono text-cp-gold">UID: {selectedTicket.userRef || `#${selectedTicket.userId}`}</span>
+                </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setSelectedTicket(null)}
-                className="p-1 rounded-lg text-cp-text-muted hover:text-cp-text-primary hover:bg-cp-elevated"
+                className="p-1 rounded-lg text-cp-text-muted hover:text-cp-text-primary hover:bg-cp-elevated transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Status Change Selector */}
-            <div className="flex items-center justify-between p-2.5 rounded-xl bg-cp-elevated/40 border border-cp-border text-xs shrink-0">
-              <span className="text-cp-text-muted">Ticket Operational Status:</span>
-              <div className="flex items-center gap-1">
-                {(['open', 'in_progress', 'waiting_user', 'resolved'] as const).map((st) => (
+            {/* Quick Status Control Bar */}
+            <div className="flex flex-wrap items-center justify-between p-3 rounded-xl bg-cp-elevated/40 border border-cp-border text-xs gap-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-cp-text-muted font-medium">Ticket Lifecycle:</span>
+                <span className="font-bold text-cp-text-primary capitalize">{selectedTicket.status.replace('_', ' ')}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(['open', 'in_progress', 'waiting_user', 'resolved', 'closed'] as const).map((st) => (
                   <button
                     key={st}
                     type="button"
+                    disabled={isUpdatingStatus}
                     onClick={() => handleStatusChange(selectedTicket.id, st)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors capitalize ${
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all capitalize ${
                       selectedTicket.status === st
-                        ? 'bg-cp-gold text-cp-bg font-bold'
+                        ? 'bg-cp-gold text-cp-bg font-bold shadow-gold-sm'
                         : 'bg-cp-card hover:bg-cp-elevated text-cp-text-secondary border border-cp-border'
                     }`}
                   >
@@ -338,42 +547,98 @@ export const AdminSupport: React.FC = () => {
             </div>
 
             {/* Conversation Messages Scroll Area */}
-            <div className="flex-1 overflow-y-auto space-y-3 p-2 rounded-xl bg-cp-card/50 border border-cp-border/60">
-              {selectedTicket.messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`p-3.5 rounded-xl text-xs space-y-1.5 ${
-                    msg.sender === 'agent'
-                      ? 'bg-cp-gold/10 border border-cp-gold/25 ml-6'
-                      : 'bg-cp-elevated/60 border border-cp-border mr-6'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className={`font-bold ${msg.sender === 'agent' ? 'text-cp-gold' : 'text-cp-text-primary'}`}>
-                      {msg.senderName}
-                    </span>
-                    <span className="text-[10px] text-cp-text-muted font-mono">{msg.timestamp}</span>
+            <div className="flex-1 overflow-y-auto space-y-3.5 p-3 rounded-xl bg-cp-card/50 border border-cp-border/60 min-h-[220px]">
+              {selectedTicket.messages.map((msg) => {
+                const isAgent = msg.sender === 'agent'
+
+                return (
+                  <div
+                    key={msg.id}
+                    className={`p-3.5 rounded-xl text-xs space-y-1.5 transition-all ${
+                      isAgent
+                        ? 'bg-cp-gold/10 border border-cp-gold/30 ml-8'
+                        : 'bg-cp-elevated/80 border border-cp-border mr-8'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                            isAgent ? 'bg-cp-gold text-cp-bg' : 'bg-cp-card border border-cp-border text-cp-text-primary'
+                          }`}
+                        >
+                          {isAgent ? <ShieldCheck className="w-3 h-3" /> : <User className="w-3 h-3" />}
+                        </div>
+                        <span className={`font-bold ${isAgent ? 'text-cp-gold' : 'text-cp-text-primary'}`}>
+                          {msg.senderName}
+                        </span>
+                        {isAgent ? (
+                          <span className="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-cp-gold/20 text-cp-gold">
+                            Staff
+                          </span>
+                        ) : (
+                          <span className="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-cp-card text-cp-text-muted border border-cp-border">
+                            Customer
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-cp-text-muted font-mono">{msg.timestamp}</span>
+                    </div>
+                    <p className="text-cp-text-primary leading-relaxed whitespace-pre-wrap">{msg.message}</p>
                   </div>
-                  <p className="text-cp-text-secondary leading-relaxed">{msg.message}</p>
-                </div>
-              ))}
+                )
+              })}
+              <div ref={messagesEndRef} />
             </div>
 
-            {/* Staff Reply Form */}
+            {/* Staff Instant Reply Form */}
             <form onSubmit={handleSendReply} className="space-y-2 pt-2 border-t border-cp-border shrink-0">
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={replyMessage}
                   onChange={(e) => setReplyMessage(e.target.value)}
-                  placeholder="Type simulated staff reply to customer..."
+                  placeholder="Type an instant reply to customer..."
                   disabled={isSending}
-                  className="flex-1 bg-[#141d2b] border border-cp-border rounded-xl px-3 py-2 text-xs text-cp-text-primary focus:outline-none focus:border-cp-gold"
+                  className="flex-1 bg-[#141d2b] border border-cp-border rounded-xl px-3.5 py-2.5 text-xs text-cp-text-primary placeholder:text-cp-text-muted focus:outline-none focus:border-cp-gold"
                 />
-                <Button type="submit" variant="primary" size="sm" disabled={isSending || !replyMessage.trim()}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={isSending || !replyMessage.trim()}
+                  isLoading={isSending}
+                  className="h-10 px-4"
+                >
                   <Send className="w-3.5 h-3.5 mr-1" />
-                  <span>Send</span>
+                  <span>Send Reply</span>
                 </Button>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-cp-text-muted">
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Real-time sync active (new customer messages appear automatically without refreshing)
+                </span>
+                <div className="flex items-center gap-2">
+                  {selectedTicket.status !== 'resolved' && (
+                    <button
+                      type="button"
+                      onClick={() => handleStatusChange(selectedTicket.id, 'resolved')}
+                      className="text-emerald-400 hover:underline flex items-center gap-1"
+                    >
+                      <CheckCircle2 className="w-3 h-3" /> Mark Resolved
+                    </button>
+                  )}
+                  {selectedTicket.status !== 'closed' && (
+                    <button
+                      type="button"
+                      onClick={() => handleStatusChange(selectedTicket.id, 'closed')}
+                      className="text-cp-text-muted hover:text-cp-negative hover:underline flex items-center gap-1"
+                    >
+                      <Archive className="w-3 h-3" /> Close Conversation
+                    </button>
+                  )}
+                </div>
               </div>
             </form>
           </div>

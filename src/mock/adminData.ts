@@ -264,18 +264,21 @@ export interface AdminSupportMessage {
   senderName: string
   message: string
   timestamp: string
+  isRead?: boolean
 }
 
 export interface AdminSupportTicket {
   id: string
   ticketRef: string
   userId: string
+  userRef?: string
   userName: string
   userEmail: string
   subject: string
-  category: 'trading' | 'account' | 'deposits' | 'withdrawals' | 'kyc' | 'security'
+  category: 'trading' | 'account' | 'deposits' | 'withdrawals' | 'kyc' | 'security' | 'wallet'
   priority: 'low' | 'medium' | 'high' | 'urgent'
-  status: 'open' | 'in_progress' | 'waiting_user' | 'resolved'
+  status: 'open' | 'in_progress' | 'waiting_user' | 'resolved' | 'closed'
+  unreadCount?: number
   createdAt: string
   updatedAt: string
   messages: AdminSupportMessage[]

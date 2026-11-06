@@ -282,13 +282,40 @@ export const adminService = {
     return res.data
   },
 
-  async getSupportTickets(): Promise<AdminSupportTicket[]> {
-    const res = await apiClient.get<{ tickets: AdminSupportTicket[] }>('/admin/support-tickets')
-    return res.data.tickets
+  async getSupportTickets(params?: { q?: string; status?: string }): Promise<{
+    tickets: AdminSupportTicket[]
+    metrics?: {
+      totalTickets: number
+      unreadTotal: number
+      openCount: number
+      inProgressCount: number
+      waitingUserCount: number
+      resolvedCount: number
+      closedCount: number
+    }
+  }> {
+    const res = await apiClient.get<{
+      tickets: AdminSupportTicket[]
+      metrics?: {
+        totalTickets: number
+        unreadTotal: number
+        openCount: number
+        inProgressCount: number
+        waitingUserCount: number
+        resolvedCount: number
+        closedCount: number
+      }
+    }>('/admin/support-tickets', { params })
+    return res.data
   },
 
   async replySupportTicket(id: string | number, message: string) {
     const res = await apiClient.post(`/admin/support-tickets/${id}/reply`, { message })
+    return res.data
+  },
+
+  async markSupportTicketRead(id: string | number) {
+    const res = await apiClient.post(`/admin/support-tickets/${id}/read`)
     return res.data
   },
 

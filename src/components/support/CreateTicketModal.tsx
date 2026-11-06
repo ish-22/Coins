@@ -3,20 +3,17 @@ import {
   X,
   LifeBuoy,
   Paperclip,
-  CheckCircle2,
   AlertCircle,
-  Sparkles,
   Send,
 } from 'lucide-react'
 import { Button } from '@/components/common/Button'
-import { Badge } from '@/components/common/Badge'
 import {
   SupportCategory,
   TicketPriority,
   SupportTicket,
   SUPPORT_CATEGORIES,
 } from '@/mock/supportData'
-import { useAuth } from '@/context/AuthContext'
+import { supportService } from '@/services/supportService'
 
 export interface CreateTicketModalProps {
   isOpen: boolean
@@ -29,13 +26,12 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   onCreated,
   onClose,
 }) => {
-  const { user } = useAuth()
   const [subject, setSubject] = useState('')
   const [category, setCategory] = useState<SupportCategory>('trading')
   const [priority, setPriority] = useState<TicketPriority>('medium')
   const [description, setDescription] = useState('')
   const [attachmentName, setAttachmentName] = useState<string | null>(null)
-  const [errors, setErrors] = useState<{ subject?: string; description?: string }>({})
+  const [errors, setErrors] = useState<{ subject?: string; description?: string; general?: string }>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (!isOpen) return null
@@ -44,9 +40,9 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     setAttachmentName('error_screenshot_sample.png')
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const newErrors: { subject?: string; description?: string } = {}
+    const newErrors: { subject?: string; description?: string; general?: string } = {}
 
     if (!subject.trim()) {
       newErrors.subject = 'Please enter a ticket subject.'
@@ -61,34 +57,26 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     }
 
     setIsSubmitting(true)
-    setTimeout(() => {
-      setIsSubmitting(false)
-      const now = new Date()
-      const newTicket: SupportTicket = {
-        id: `TICK-${Math.floor(1000 + Math.random() * 9000)}`,
+    setErrors({})
+    try {
+      const response = await supportService.createTicket({
         subject: subject.trim(),
         category,
         priority,
-        status: 'open',
-        createdAt: now.toISOString().replace('T', ' ').slice(0, 16),
-        updatedAt: now.toISOString().replace('T', ' ').slice(0, 16),
-        description: description.trim(),
-        attachmentName: attachmentName || undefined,
-        messages: [
-          {
-            id: `msg-${Date.now()}`,
-            sender: 'user',
-            senderName: user?.displayName || user?.name || user?.fullName || 'User',
-            message: description.trim(),
-            timestamp: 'Just now',
-            attachmentName: attachmentName || undefined,
-          },
-        ],
-      }
+        message: description.trim(),
+      })
 
-      onCreated(newTicket)
-      onClose()
-    }, 600)
+      if (response && response.ticket) {
+        onCreated(response.ticket)
+        onClose()
+      }
+    } catch (err: any) {
+      setErrors({
+        general: err?.response?.data?.message || 'Failed to submit support ticket. Please try again.',
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -102,7 +90,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-cp-text-primary">Create Support Ticket</h3>
-              <p className="text-xs text-cp-text-secondary">Direct assistance from CoinPlus support desk</p>
+              <p className="text-xs text-cp-text-secondary">Direct communication with CoinPlus support desk</p>
             </div>
           </div>
           <button
@@ -115,6 +103,13 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
 
         {/* Content Form */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4 text-xs">
+          {errors.general && (
+            <div className="p-3 rounded-lg bg-cp-negative/10 border border-cp-negative/30 text-cp-negative text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errors.general}</span>
+            </div>
+          )}
+
           {/* Subject */}
           <div className="space-y-1.5">
             <label className="font-semibold text-cp-text-primary block">
@@ -127,7 +122,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
                 setSubject(e.target.value)
                 if (errors.subject) setErrors({ ...errors, subject: undefined })
               }}
-              placeholder="e.g. Issue with deposit confirmation or order fill"
+              placeholder="e.g. Question about deposit or trading inquiry"
               className={`w-full bg-cp-card border rounded-lg py-2.5 px-3 text-xs text-cp-text-primary focus:outline-none ${
                 errors.subject ? 'border-cp-negative' : 'border-cp-border focus:border-cp-gold'
               }`}
@@ -139,8 +134,8 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
             )}
           </div>
 
-          {/* Category & Priority Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Category & Priority */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="font-semibold text-cp-text-secondary block">Category</label>
               <select
@@ -183,7 +178,7 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
                 setDescription(e.target.value)
                 if (errors.description) setErrors({ ...errors, description: undefined })
               }}
-              placeholder="Please explain your issue clearly. Include transaction hashes or order IDs if applicable..."
+              placeholder="Please explain your question or issue clearly..."
               className={`w-full bg-cp-card border rounded-lg py-2.5 px-3 text-xs text-cp-text-primary focus:outline-none leading-relaxed ${
                 errors.description ? 'border-cp-negative' : 'border-cp-border focus:border-cp-gold'
               }`}
@@ -222,14 +217,14 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
                 className="w-full py-2.5 px-3 rounded-lg border border-dashed border-cp-border hover:border-cp-gold/60 text-cp-text-secondary hover:text-cp-gold transition-colors flex items-center justify-center gap-2"
               >
                 <Paperclip className="w-4 h-4" />
-                <span>Attach Demonstration Screenshot (.PNG / .JPG / .PDF)</span>
+                <span>Attach Screenshot (.PNG / .JPG / .PDF)</span>
               </button>
             )}
           </div>
 
           {/* Safety Notice */}
           <div className="p-3 rounded-lg bg-cp-card border border-cp-border/60 text-[11px] text-cp-text-secondary leading-relaxed">
-            Note: This is a frontend demonstration. Tickets are stored in your local session and will not be routed to live external personnel.
+            Customer inquiries are answered in real time by administrative operators. Updates appear instantly without page refresh.
           </div>
 
           {/* Footer Actions */}

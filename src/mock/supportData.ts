@@ -13,7 +13,7 @@ export type SupportCategory =
   | 'security'
 
 export type TicketPriority = 'low' | 'medium' | 'high' | 'urgent'
-export type TicketStatus = 'open' | 'in_progress' | 'waiting_user' | 'resolved'
+export type TicketStatus = 'open' | 'in_progress' | 'waiting_user' | 'resolved' | 'closed'
 
 export interface FAQItem {
   id: string
@@ -25,23 +25,26 @@ export interface FAQItem {
 
 export interface TicketMessage {
   id: string
-  sender: 'user' | 'support'
+  sender: 'user' | 'support' | 'agent'
   senderName: string
   message: string
   timestamp: string
   attachmentName?: string
+  isRead?: boolean
 }
 
 export interface SupportTicket {
   id: string
+  ticketRef?: string
   subject: string
   category: SupportCategory
   priority: TicketPriority
   status: TicketStatus
   createdAt: string
   updatedAt: string
-  description: string
+  description?: string
   attachmentName?: string
+  unreadCount?: number
   messages: TicketMessage[]
 }
 
