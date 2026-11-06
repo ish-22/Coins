@@ -353,6 +353,19 @@ export const AdminDashboard: React.FC = () => {
                 </div>
                 <ArrowRight className="w-4 h-4 text-cp-text-muted group-hover:text-cp-gold transition-colors" />
               </Link>
+
+              <Link
+                to="/admin/notifications"
+                className="p-3 rounded-xl bg-[#141d2b] hover:bg-cp-card border border-cp-border hover:border-cp-gold/40 flex items-center justify-between transition-all group"
+              >
+                <div>
+                  <span className="font-bold text-cp-text-primary group-hover:text-cp-gold transition-colors block">
+                    Notifications Hub
+                  </span>
+                  <span className="text-[10px] text-cp-text-muted">Broadcast announcements & alerts</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-cp-text-muted group-hover:text-cp-gold transition-colors" />
+              </Link>
             </CardContent>
           </Card>
         </div>
