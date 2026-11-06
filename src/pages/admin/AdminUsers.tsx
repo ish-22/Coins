@@ -21,11 +21,30 @@ import {
   Shield,
   Mail,
   Globe,
+  Wallet,
+  ArrowDownToLine,
+  ArrowUpRight,
+  DollarSign,
+  History,
+  Sliders,
+  FileText,
+  AlertCircle,
+  Check,
+  Lock,
+  Scale,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
-import { AdminUser } from '@/mock/adminData'
+import {
+  AdminUser,
+  UserBalanceDetailsResponse,
+  UserWalletDetail,
+  UserBalanceSummary,
+  BalanceAdjustmentRecord,
+  UserTransactionRecord,
+  BalanceAdjustmentPayload,
+} from '@/mock/adminData'
 import { formatUSD } from '@/utils/formatters'
 import { adminService } from '@/services'
 
@@ -76,6 +95,111 @@ export const AdminUsers: React.FC = () => {
   const [formBalance, setFormBalance] = useState('1000')
   const [modalFormError, setModalFormError] = useState<string | null>(null)
   const [modalSubmitting, setModalSubmitting] = useState(false)
+
+  // User Balance & Financial Ledger Modal State
+  const [balanceModalUser, setBalanceModalUser] = useState<AdminUser | null>(null)
+  const [balanceDetails, setBalanceDetails] = useState<UserBalanceDetailsResponse | null>(null)
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false)
+  const [balanceActiveTab, setBalanceActiveTab] = useState<'overview' | 'adjust' | 'adjustments_history' | 'all_transactions'>('overview')
+  const [txFilterType, setTxFilterType] = useState<string>('all')
+
+  // Balance Adjustment Form State
+  const [adjAsset, setAdjAsset] = useState<string>('USDT')
+  const [adjAmount, setAdjAmount] = useState<string>('')
+  const [adjType, setAdjType] = useState<'add' | 'deduct' | 'correction'>('add')
+  const [adjProcedure, setAdjProcedure] = useState<'verified_payment' | 'refund' | 'correction' | 'authorized_procedure'>('verified_payment')
+  const [adjReason, setAdjReason] = useState<string>('')
+  const [adjDeltaDirection, setAdjDeltaDirection] = useState<'increase' | 'decrease'>('increase')
+  const [isSubmittingAdj, setIsSubmittingAdj] = useState(false)
+  const [adjError, setAdjError] = useState<string | null>(null)
+  const [adjConfirmDialog, setAdjConfirmDialog] = useState<boolean>(false)
+
+  // Open Balance Modal
+  const handleOpenBalanceModal = async (user: AdminUser, defaultTab: 'overview' | 'adjust' = 'overview') => {
+    setBalanceModalUser(user)
+    setBalanceActiveTab(defaultTab)
+    setAdjAsset('USDT')
+    setAdjAmount('')
+    setAdjReason('')
+    setAdjError(null)
+    setAdjConfirmDialog(false)
+    setIsLoadingBalance(true)
+    try {
+      const data = await adminService.getUserBalanceDetails(user.id)
+      setBalanceDetails(data)
+    } catch (err: any) {
+      console.error('Failed to load user balance details', err)
+    } finally {
+      setIsLoadingBalance(false)
+    }
+  }
+
+  // Refresh Balance Data
+  const refreshBalanceData = async (userId: string) => {
+    setIsLoadingBalance(true)
+    try {
+      const data = await adminService.getUserBalanceDetails(userId)
+      setBalanceDetails(data)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsLoadingBalance(false)
+    }
+  }
+
+  // Execute Balance Adjustment
+  const handleExecuteAdjustment = async () => {
+    if (!balanceModalUser) return
+    const numericAmount = parseFloat(adjAmount)
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      setAdjError('Please enter a valid positive adjustment amount.')
+      return
+    }
+
+    if (!adjReason.trim() || adjReason.trim().length < 5) {
+      setAdjError('A detailed administrative reason (minimum 5 characters) is required by compliance.')
+      return
+    }
+
+    // Verify sufficient balance for deductions
+    if (adjType === 'deduct') {
+      const currentWallet = balanceDetails?.wallets?.find(w => w.symbol.toUpperCase() === adjAsset.toUpperCase())
+      const avail = currentWallet ? currentWallet.availableBalance : 0
+      if (numericAmount > avail) {
+        setAdjError(`Cannot deduct ${numericAmount} ${adjAsset}: User only has ${avail} ${adjAsset} available.`)
+        return
+      }
+    }
+
+    setIsSubmittingAdj(true)
+    setAdjError(null)
+
+    try {
+      const res = await adminService.adjustUserBalance(balanceModalUser.id, {
+        asset: adjAsset,
+        amount: numericAmount,
+        type: adjType,
+        procedure: adjProcedure,
+        reason: adjReason.trim(),
+        deltaDirection: adjDeltaDirection,
+      })
+
+      setSuccessToast(res.message || 'Balance adjustment successfully processed and audited.')
+      setAdjConfirmDialog(false)
+      setAdjAmount('')
+      setAdjReason('')
+      // Refresh user balance details and global table
+      await refreshBalanceData(balanceModalUser.id)
+      fetchUsers(true)
+      setBalanceActiveTab('adjustments_history')
+      setTimeout(() => setSuccessToast(null), 4500)
+    } catch (err: any) {
+      setAdjError(err?.response?.data?.message || 'Failed to process balance adjustment.')
+      setAdjConfirmDialog(false)
+    } finally {
+      setIsSubmittingAdj(false)
+    }
+  }
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -658,7 +782,18 @@ export const AdminUsers: React.FC = () => {
                           <span>Profile</span>
                         </button>
 
-                        {/* 2. Edit User */}
+                        {/* 2. Manage Balances & Financial Ledger */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenBalanceModal(user)}
+                          className="px-2 py-1 rounded-lg bg-cp-gold/10 hover:bg-cp-gold/20 border border-cp-gold/30 text-cp-gold transition-colors inline-flex items-center gap-1 text-[11px] font-semibold"
+                          title="Manage user balances, deposits, withdrawals, and balance adjustments"
+                        >
+                          <Wallet className="w-3.5 h-3.5" />
+                          <span>Balances</span>
+                        </button>
+
+                        {/* 3. Edit User */}
                         <button
                           type="button"
                           onClick={() => handleOpenEditModal(user)}
@@ -908,6 +1043,20 @@ export const AdminUsers: React.FC = () => {
               </Button>
 
               <div className="flex items-center gap-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    const u = selectedUser
+                    setSelectedUser(null)
+                    handleOpenBalanceModal(u)
+                  }}
+                  className="flex items-center gap-1.5"
+                >
+                  <Wallet className="w-4 h-4" />
+                  <span>Manage Balances</span>
+                </Button>
+
                 {selectedUser.status === 'blocked' ? (
                   <Button
                     variant="primary"
@@ -1300,6 +1449,777 @@ export const AdminUsers: React.FC = () => {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* USER BALANCE MANAGEMENT & FINANCIAL OPERATIONS MODAL */}
+      {/* ========================================================================= */}
+      {balanceModalUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+          <div
+            className="fixed inset-0 bg-black/85 backdrop-blur-sm"
+            onClick={() => setBalanceModalUser(null)}
+          />
+
+          <div className="relative w-full max-w-4xl bg-[#0c121c] border border-cp-border rounded-2xl shadow-2xl overflow-hidden z-10 animate-fadeIn flex flex-col max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-cp-border flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#111827]/70">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-cp-gold/15 text-cp-gold border border-cp-gold/30">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-bold text-cp-text-primary">
+                      Balance Management & Financial Ledger
+                    </h3>
+                    <Badge variant="gold" size="sm">
+                      Audit Enforced
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-cp-text-muted mt-0.5">
+                    <span className="font-bold text-cp-text-primary">{balanceModalUser.name}</span>
+                    <span>•</span>
+                    <span className="font-mono text-cp-gold">{balanceModalUser.userRef}</span>
+                    <span>•</span>
+                    <span className="font-mono">{balanceModalUser.email}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => refreshBalanceData(balanceModalUser.id)}
+                  disabled={isLoadingBalance}
+                  className="p-1.5 rounded-lg border border-cp-border bg-cp-card hover:bg-cp-elevated text-cp-text-secondary hover:text-cp-text-primary transition-colors disabled:opacity-50"
+                  title="Refresh Balance Data"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isLoadingBalance ? 'animate-spin text-cp-gold' : ''}`} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBalanceModalUser(null)}
+                  className="p-1.5 rounded-lg text-cp-text-muted hover:text-cp-text-primary hover:bg-cp-elevated"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Navigation Tabs */}
+            <div className="px-4 sm:px-6 border-b border-cp-border flex items-center gap-2 bg-[#0c121c] overflow-x-auto scrollbar-none text-xs">
+              <button
+                type="button"
+                onClick={() => setBalanceActiveTab('overview')}
+                className={`py-3 px-3 font-semibold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  balanceActiveTab === 'overview'
+                    ? 'border-cp-gold text-cp-gold font-bold'
+                    : 'border-transparent text-cp-text-muted hover:text-cp-text-primary'
+                }`}
+              >
+                <DollarSign className="w-3.5 h-3.5" />
+                <span>Balances & Assets</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBalanceActiveTab('adjust')}
+                className={`py-3 px-3 font-semibold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  balanceActiveTab === 'adjust'
+                    ? 'border-cp-gold text-cp-gold font-bold'
+                    : 'border-transparent text-cp-text-muted hover:text-cp-text-primary'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5" />
+                <span>Add / Deduct / Correct Balance</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBalanceActiveTab('adjustments_history')}
+                className={`py-3 px-3 font-semibold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  balanceActiveTab === 'adjustments_history'
+                    ? 'border-cp-gold text-cp-gold font-bold'
+                    : 'border-transparent text-cp-text-muted hover:text-cp-text-primary'
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>Adjustment Audit Trail ({balanceDetails?.adjustments?.length || 0})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBalanceActiveTab('all_transactions')}
+                className={`py-3 px-3 font-semibold border-b-2 transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  balanceActiveTab === 'all_transactions'
+                    ? 'border-cp-gold text-cp-gold font-bold'
+                    : 'border-transparent text-cp-text-muted hover:text-cp-text-primary'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Transaction History ({balanceDetails?.transactions?.length || 0})</span>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
+              {isLoadingBalance ? (
+                <div className="p-12 text-center text-xs text-cp-text-muted space-y-2">
+                  <RefreshCw className="w-6 h-6 animate-spin text-cp-gold mx-auto" />
+                  <p>Fetching real-time user balances, deposit summaries, and transaction ledgers...</p>
+                </div>
+              ) : (
+                <>
+                  {/* ========================================================= */}
+                  {/* TAB 1: BALANCES & ASSETS OVERVIEW */}
+                  {/* ========================================================= */}
+                  {balanceActiveTab === 'overview' && (
+                    <div className="space-y-5 animate-fadeIn">
+                      {/* Financial KPI Summary Cards */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="p-3.5 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                          <span className="text-[10px] text-cp-text-muted uppercase font-bold tracking-wider block">
+                            Available Balance
+                          </span>
+                          <span className="text-lg sm:text-xl font-bold font-mono text-cp-text-primary mt-1 block">
+                            {formatUSD(balanceDetails?.balanceSummary?.availableBalanceUsd || 0)}
+                          </span>
+                          <span className="text-[10px] text-cp-positive font-medium block mt-0.5">
+                            Ready for trade & withdrawal
+                          </span>
+                        </div>
+
+                        <div className="p-3.5 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                          <span className="text-[10px] text-cp-positive uppercase font-bold tracking-wider block">
+                            Total Deposited
+                          </span>
+                          <span className="text-lg sm:text-xl font-bold font-mono text-cp-positive mt-1 block">
+                            +{formatUSD(balanceDetails?.balanceSummary?.totalDepositedUsd || 0)}
+                          </span>
+                          <span className="text-[10px] text-cp-text-muted font-mono block mt-0.5">
+                            {balanceDetails?.balanceSummary?.totalDepositedCount || 0} confirmed deposits
+                          </span>
+                        </div>
+
+                        <div className="p-3.5 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                          <span className="text-[10px] text-amber-300 uppercase font-bold tracking-wider block">
+                            Total Withdrawn
+                          </span>
+                          <span className="text-lg sm:text-xl font-bold font-mono text-amber-300 mt-1 block">
+                            -{formatUSD(balanceDetails?.balanceSummary?.totalWithdrawalsUsd || 0)}
+                          </span>
+                          <span className="text-[10px] text-cp-text-muted font-mono block mt-0.5">
+                            {balanceDetails?.balanceSummary?.totalWithdrawalsCount || 0} processed withdrawals
+                          </span>
+                        </div>
+
+                        <div className="p-3.5 rounded-xl bg-cp-elevated/40 border border-cp-border">
+                          <span className="text-[10px] text-cp-text-muted uppercase font-bold tracking-wider block">
+                            Locked in Orders
+                          </span>
+                          <span className="text-lg sm:text-xl font-bold font-mono text-cp-text-secondary mt-1 block">
+                            {formatUSD(balanceDetails?.balanceSummary?.lockedBalanceUsd || 0)}
+                          </span>
+                          <span className="text-[10px] text-cp-gold font-mono block mt-0.5">
+                            Active open limit orders
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Per-Asset Wallets Breakdown */}
+                      <div className="rounded-xl border border-cp-border overflow-hidden bg-[#111827]/40">
+                        <div className="p-3 border-b border-cp-border flex items-center justify-between bg-cp-elevated/40">
+                          <div className="flex items-center gap-2">
+                            <Wallet className="w-4 h-4 text-cp-gold" />
+                            <span className="text-xs font-bold text-cp-text-primary">
+                              Multi-Asset Wallet Balances
+                            </span>
+                          </div>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => {
+                              setAdjAsset('USDT')
+                              setBalanceActiveTab('adjust')
+                            }}
+                            className="text-xs py-1 px-2.5"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            <span>Adjust Balance</span>
+                          </Button>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr className="border-b border-cp-border text-[10px] text-cp-text-muted uppercase tracking-wider font-semibold bg-cp-elevated/20">
+                                <th className="py-2.5 px-3">Asset</th>
+                                <th className="py-2.5 px-3">Available Balance</th>
+                                <th className="py-2.5 px-3">Locked Balance</th>
+                                <th className="py-2.5 px-3">Total Balance</th>
+                                <th className="py-2.5 px-3">Est. USD Price</th>
+                                <th className="py-2.5 px-3 text-right">Value (USD)</th>
+                                <th className="py-2.5 px-3 text-center">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-cp-border/40 font-mono text-cp-text-secondary">
+                              {balanceDetails?.wallets?.map((w) => (
+                                <tr key={w.assetId} className="hover:bg-cp-elevated/30 transition-colors">
+                                  <td className="py-2.5 px-3 font-sans">
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className="w-2 h-2 rounded-full"
+                                        style={{ backgroundColor: w.color || '#F0B90B' }}
+                                      />
+                                      <span className="font-bold text-cp-text-primary">{w.symbol}</span>
+                                      <span className="text-[10px] text-cp-text-muted hidden sm:inline">
+                                        ({w.name})
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-3 font-bold text-cp-text-primary">
+                                    {w.availableBalance} {w.symbol}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-cp-text-muted">
+                                    {w.lockedBalance} {w.symbol}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-bold text-cp-gold">
+                                    {w.totalBalance} {w.symbol}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-cp-text-muted">
+                                    {formatUSD(w.priceUsd)}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-bold text-cp-text-primary">
+                                    {formatUSD(w.valueUsd)}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setAdjAsset(w.symbol)
+                                        setBalanceActiveTab('adjust')
+                                      }}
+                                      className="px-2 py-0.5 rounded bg-cp-elevated hover:bg-cp-card border border-cp-border text-[10px] font-sans text-cp-gold hover:underline transition-colors"
+                                    >
+                                      Adjust
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ========================================================= */}
+                  {/* TAB 2: ADD / DEDUCT / CORRECT BALANCE FORM */}
+                  {/* ========================================================= */}
+                  {balanceActiveTab === 'adjust' && (
+                    <div className="space-y-4 animate-fadeIn max-w-2xl mx-auto">
+                      {/* Security Requirements Alert */}
+                      <div className="p-3.5 rounded-xl bg-cp-gold/10 border border-cp-gold/30 text-xs text-cp-text-primary space-y-1">
+                        <div className="flex items-center gap-2 text-cp-gold font-bold">
+                          <ShieldAlert className="w-4 h-4 shrink-0" />
+                          <span>Important Security & Regulatory Compliance Requirements</span>
+                        </div>
+                        <p className="text-[11px] text-cp-text-secondary leading-relaxed">
+                          Every manual balance adjustment requires an administrator reason and must be permanently recorded
+                          in an audit log. For real-money accounts, balance changes must follow verified payment, refund,
+                          correction, or other authorized financial procedures.
+                        </p>
+                      </div>
+
+                      {adjError && (
+                        <div className="p-3 rounded-xl bg-cp-negative/15 border border-cp-negative/30 text-xs text-cp-negative flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 shrink-0" />
+                            <span>{adjError}</span>
+                          </div>
+                          <button type="button" onClick={() => setAdjError(null)} className="p-1 hover:text-white">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* 1. Select Action Type */}
+                      <div className="space-y-1.5 text-xs">
+                        <label className="font-bold text-cp-text-secondary block uppercase text-[10px] tracking-wider">
+                          1. Adjustment Operation *
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setAdjType('add')}
+                            className={`p-3 rounded-xl border text-left transition-all ${
+                              adjType === 'add'
+                                ? 'bg-cp-positive/15 border-cp-positive text-cp-positive shadow-sm'
+                                : 'bg-[#141d2b] border-cp-border text-cp-text-secondary hover:bg-cp-elevated'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 font-bold text-xs">
+                              <Plus className="w-4 h-4" />
+                              <span>Add Balance (Credit)</span>
+                            </div>
+                            <span className="text-[10px] opacity-80 block mt-1">
+                              Credit verified deposit, refund, promotion or funds
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setAdjType('deduct')}
+                            className={`p-3 rounded-xl border text-left transition-all ${
+                              adjType === 'deduct'
+                                ? 'bg-cp-negative/15 border-cp-negative text-cp-negative shadow-sm'
+                                : 'bg-[#141d2b] border-cp-border text-cp-text-secondary hover:bg-cp-elevated'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 font-bold text-xs">
+                              <Ban className="w-4 h-4" />
+                              <span>Deduct Balance (Debit)</span>
+                            </div>
+                            <span className="text-[10px] opacity-80 block mt-1">
+                              Debit withdrawal settlement, fee, or penalty
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setAdjType('correction')}
+                            className={`p-3 rounded-xl border text-left transition-all ${
+                              adjType === 'correction'
+                                ? 'bg-amber-500/15 border-amber-500 text-amber-300 shadow-sm'
+                                : 'bg-[#141d2b] border-cp-border text-cp-text-secondary hover:bg-cp-elevated'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 font-bold text-xs">
+                              <Scale className="w-4 h-4" />
+                              <span>Correct Account Error</span>
+                            </div>
+                            <span className="text-[10px] opacity-80 block mt-1">
+                              Reconcile accounting glitches or error correction
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 2. Authorized Financial Procedure */}
+                      <div className="space-y-1.5 text-xs">
+                        <label className="font-bold text-cp-text-secondary block uppercase text-[10px] tracking-wider">
+                          2. Authorized Financial Procedure *
+                        </label>
+                        <select
+                          value={adjProcedure}
+                          onChange={(e) => setAdjProcedure(e.target.value as any)}
+                          className="w-full bg-[#141d2b] border border-cp-border rounded-xl px-3 py-2 text-cp-text-primary focus:outline-none focus:border-cp-gold text-xs"
+                        >
+                          <option value="verified_payment">
+                            Verified Payment (Confirmed wire, bank transfer, or on-chain deposit)
+                          </option>
+                          <option value="refund">
+                            Customer Refund / Reimbursement (Settlement of failed order, error refund)
+                          </option>
+                          <option value="correction">
+                            Account Balance Error Correction (System discrepancy or audit reconciliation)
+                          </option>
+                          <option value="authorized_procedure">
+                            Authorized Financial Procedure (Compliance authorized adjustment)
+                          </option>
+                        </select>
+                      </div>
+
+                      {/* 3. Asset & Amount */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <label className="font-bold text-cp-text-secondary block uppercase text-[10px] tracking-wider mb-1">
+                            Target Asset *
+                          </label>
+                          <select
+                            value={adjAsset}
+                            onChange={(e) => setAdjAsset(e.target.value)}
+                            className="w-full bg-[#141d2b] border border-cp-border rounded-xl px-3 py-2 text-cp-text-primary focus:outline-none focus:border-cp-gold font-mono text-xs"
+                          >
+                            {balanceDetails?.wallets?.map((w) => (
+                              <option key={w.assetId} value={w.symbol}>
+                                {w.symbol} ({w.name}) — Avail: {w.availableBalance}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="font-bold text-cp-text-secondary block uppercase text-[10px] tracking-wider mb-1">
+                            Adjustment Amount *
+                          </label>
+                          <input
+                            type="number"
+                            step="any"
+                            min="0.00000001"
+                            required
+                            placeholder="e.g. 150.00"
+                            value={adjAmount}
+                            onChange={(e) => setAdjAmount(e.target.value)}
+                            className="w-full bg-[#141d2b] border border-cp-border rounded-xl px-3 py-2 text-cp-text-primary font-mono text-xs focus:outline-none focus:border-cp-gold"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Live Calculation Preview Card */}
+                      {adjAmount && !isNaN(parseFloat(adjAmount)) && (
+                        <div className="p-3.5 rounded-xl bg-cp-elevated/40 border border-cp-border text-xs space-y-1.5 font-mono">
+                          <span className="text-[10px] font-sans font-bold text-cp-text-muted uppercase block">
+                            Calculation Preview
+                          </span>
+                          {(() => {
+                            const currentWallet = balanceDetails?.wallets?.find(
+                              (w) => w.symbol.toUpperCase() === adjAsset.toUpperCase()
+                            )
+                            const currentAvail = currentWallet ? currentWallet.availableBalance : 0
+                            const price = currentWallet ? currentWallet.priceUsd : 1
+                            const num = parseFloat(adjAmount) || 0
+                            const delta = adjType === 'deduct' ? -num : num
+                            const projected = Math.max(0, currentAvail + delta)
+
+                            return (
+                              <div className="grid grid-cols-3 gap-2 text-center pt-1">
+                                <div className="p-2 rounded-lg bg-[#141d2b] border border-cp-border/50">
+                                  <span className="text-[10px] text-cp-text-muted block font-sans">Current Balance</span>
+                                  <span className="font-bold text-cp-text-secondary">
+                                    {currentAvail} {adjAsset}
+                                  </span>
+                                </div>
+                                <div className="p-2 rounded-lg bg-[#141d2b] border border-cp-border/50">
+                                  <span className="text-[10px] text-cp-text-muted block font-sans">Adjustment</span>
+                                  <span
+                                    className={`font-bold ${
+                                      delta >= 0 ? 'text-cp-positive' : 'text-cp-negative'
+                                    }`}
+                                  >
+                                    {delta >= 0 ? `+${delta}` : delta} {adjAsset}
+                                  </span>
+                                </div>
+                                <div className="p-2 rounded-lg bg-[#141d2b] border border-cp-gold/40">
+                                  <span className="text-[10px] text-cp-gold block font-sans font-bold">New Balance</span>
+                                  <span className="font-bold text-cp-gold">
+                                    {projected} {adjAsset}
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      )}
+
+                      {/* 4. Mandatory Administrator Reason */}
+                      <div className="space-y-1.5 text-xs">
+                        <label className="font-bold text-cp-text-secondary block uppercase text-[10px] tracking-wider">
+                          Administrator Reason / Compliance Justification *
+                        </label>
+                        <textarea
+                          rows={3}
+                          required
+                          value={adjReason}
+                          onChange={(e) => setAdjReason(e.target.value)}
+                          placeholder="State the verifiable reason, transaction reference, dispute ticket ID, or audit justification..."
+                          className="w-full bg-[#141d2b] border border-cp-border rounded-xl p-3 text-cp-text-primary text-xs focus:outline-none focus:border-cp-gold placeholder:text-cp-text-muted/60"
+                        />
+                        <span className="text-[10px] text-cp-text-muted">
+                          Minimum 5 characters. This explanation will be permanently recorded in the system audit log.
+                        </span>
+                      </div>
+
+                      {/* Submit Button */}
+                      <div className="pt-2 flex justify-end">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={() => {
+                            const numericAmount = parseFloat(adjAmount)
+                            if (isNaN(numericAmount) || numericAmount <= 0) {
+                              setAdjError('Please enter a valid positive adjustment amount.')
+                              return
+                            }
+                            if (!adjReason.trim() || adjReason.trim().length < 5) {
+                              setAdjError('A detailed administrative reason (minimum 5 characters) is required.')
+                              return
+                            }
+                            setAdjConfirmDialog(true)
+                          }}
+                          className="px-5 shadow-md"
+                        >
+                          Review & Execute Balance Adjustment
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ========================================================= */}
+                  {/* TAB 3: ADJUSTMENTS AUDIT TRAIL */}
+                  {/* ========================================================= */}
+                  {balanceActiveTab === 'adjustments_history' && (
+                    <div className="space-y-3 animate-fadeIn">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-cp-text-primary">
+                          Recorded Balance Adjustments & Administrative Reasons
+                        </span>
+                        <span className="text-[11px] text-cp-text-muted font-mono">
+                          Permanent Compliance Ledger
+                        </span>
+                      </div>
+
+                      {!balanceDetails?.adjustments || balanceDetails.adjustments.length === 0 ? (
+                        <div className="p-12 text-center text-xs text-cp-text-muted rounded-xl border border-cp-border bg-[#141d2b]/40 space-y-2">
+                          <History className="w-8 h-8 text-cp-text-muted mx-auto" />
+                          <p>No administrative balance adjustments have been recorded for this user yet.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {balanceDetails.adjustments.map((adj) => (
+                            <div
+                              key={adj.id}
+                              className="p-3.5 rounded-xl bg-cp-elevated/40 border border-cp-border text-xs space-y-2"
+                            >
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-cp-border/40 pb-2">
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant={adj.amount >= 0 ? 'positive' : 'negative'}
+                                    size="sm"
+                                    className="font-mono"
+                                  >
+                                    {adj.amount >= 0 ? `+${adj.amount}` : adj.amount} {adj.asset}
+                                  </Badge>
+                                  <span className="text-cp-text-muted font-mono text-[11px]">
+                                    ≈ {formatUSD(adj.valueUsd)}
+                                  </span>
+                                </div>
+                                <span className="font-mono text-[11px] text-cp-text-muted">
+                                  Date: {adj.createdAt}
+                                </span>
+                              </div>
+
+                              <div className="text-xs">
+                                <span className="text-[10px] text-cp-text-muted font-bold uppercase block">
+                                  Reason & Procedure Notes:
+                                </span>
+                                <p className="text-cp-text-primary mt-0.5 leading-relaxed bg-[#141d2b] p-2.5 rounded-lg border border-cp-border/50 font-mono text-[11px]">
+                                  {adj.notes || 'No reason provided'}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ========================================================= */}
+                  {/* TAB 4: COMPLETE TRANSACTION HISTORY */}
+                  {/* ========================================================= */}
+                  {balanceActiveTab === 'all_transactions' && (
+                    <div className="space-y-3 animate-fadeIn">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-cp-text-primary">
+                          All Account Financial Transactions
+                        </span>
+
+                        {/* Transaction Type Filter */}
+                        <div className="flex items-center gap-1 text-xs">
+                          {(['all', 'deposit', 'withdrawal', 'balance_adjustment', 'trade_buy', 'trade_sell'] as const).map(
+                            (st) => (
+                              <button
+                                key={st}
+                                type="button"
+                                onClick={() => setTxFilterType(st)}
+                                className={`px-2 py-1 rounded-lg border text-[10px] font-semibold transition-all capitalize ${
+                                  txFilterType === st
+                                    ? 'bg-cp-gold text-cp-bg border-cp-gold shadow-sm'
+                                    : 'bg-cp-card hover:bg-cp-elevated text-cp-text-secondary border-cp-border'
+                                }`}
+                              >
+                                {st.replace('_', ' ')}
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const filtered = (balanceDetails?.transactions || []).filter((t) => {
+                          if (txFilterType === 'all') return true
+                          return t.type === txFilterType
+                        })
+
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="p-12 text-center text-xs text-cp-text-muted rounded-xl border border-cp-border bg-[#141d2b]/40">
+                              No transaction records match the "{txFilterType}" filter.
+                            </div>
+                          )
+                        }
+
+                        return (
+                          <div className="rounded-xl border border-cp-border overflow-hidden bg-[#111827]/40">
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-left text-xs">
+                                <thead>
+                                  <tr className="border-b border-cp-border text-[10px] text-cp-text-muted uppercase tracking-wider font-semibold bg-cp-elevated/20">
+                                    <th className="py-2.5 px-3">Date / Time</th>
+                                    <th className="py-2.5 px-3">Type</th>
+                                    <th className="py-2.5 px-3">Asset</th>
+                                    <th className="py-2.5 px-3">Amount</th>
+                                    <th className="py-2.5 px-3">Value (USD)</th>
+                                    <th className="py-2.5 px-3">Status</th>
+                                    <th className="py-2.5 px-3">Notes / TxHash</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-cp-border/40 font-mono text-cp-text-secondary">
+                                  {filtered.map((t) => (
+                                    <tr key={t.id} className="hover:bg-cp-elevated/30 transition-colors">
+                                      <td className="py-2.5 px-3 text-[11px] text-cp-text-muted whitespace-nowrap">
+                                        {t.createdAt}
+                                      </td>
+                                      <td className="py-2.5 px-3 font-sans capitalize">
+                                        <span
+                                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                            t.type === 'deposit'
+                                              ? 'bg-cp-positive/10 text-cp-positive border border-cp-positive/30'
+                                              : t.type === 'withdrawal'
+                                              ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
+                                              : t.type === 'balance_adjustment'
+                                              ? 'bg-purple-500/10 text-purple-300 border border-purple-500/30'
+                                              : 'bg-cp-elevated text-cp-text-secondary border border-cp-border'
+                                          }`}
+                                        >
+                                          {t.type.replace('_', ' ')}
+                                        </span>
+                                      </td>
+                                      <td className="py-2.5 px-3 font-bold text-cp-text-primary">
+                                        {t.asset}
+                                      </td>
+                                      <td
+                                        className={`py-2.5 px-3 font-bold ${
+                                          t.amount >= 0 ? 'text-cp-positive' : 'text-cp-negative'
+                                        }`}
+                                      >
+                                        {t.amount >= 0 ? `+${t.amount}` : t.amount}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-cp-text-muted">
+                                        {formatUSD(t.valueUsd)}
+                                      </td>
+                                      <td className="py-2.5 px-3">
+                                        <Badge
+                                          variant={
+                                            t.status === 'completed'
+                                              ? 'positive'
+                                              : t.status === 'pending'
+                                              ? 'gold'
+                                              : 'negative'
+                                          }
+                                          size="sm"
+                                          className="capitalize"
+                                        >
+                                          {t.status}
+                                        </Badge>
+                                      </td>
+                                      <td className="py-2.5 px-3 text-[11px] text-cp-text-muted max-w-[200px] truncate" title={t.notes || t.txHash}>
+                                        {t.notes || t.txHash || '—'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-cp-border flex justify-between items-center text-xs text-cp-text-muted bg-[#0c121c]">
+              <span>Client: {balanceModalUser.email}</span>
+              <Button variant="outline" size="sm" onClick={() => setBalanceModalUser(null)}>
+                Close Window
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ADJUSTMENT CONFIRMATION DIALOG */}
+      {/* ========================================================================= */}
+      {adjConfirmDialog && balanceModalUser && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/90 backdrop-blur-md" onClick={() => setAdjConfirmDialog(false)} />
+
+          <div className="relative w-full max-w-md bg-[#0c121c] border border-cp-gold/60 rounded-2xl shadow-2xl p-6 z-10 animate-fadeIn space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-cp-gold/15 text-cp-gold border border-cp-gold/40">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-cp-text-primary">
+                  Confirm Balance Adjustment
+                </h3>
+                <p className="text-xs text-cp-text-muted">
+                  Beneficiary: {balanceModalUser.name} ({balanceModalUser.userRef})
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-cp-elevated/50 border border-cp-border text-xs space-y-2 font-mono">
+              <div className="flex justify-between">
+                <span className="text-cp-text-muted font-sans">Operation:</span>
+                <span className="font-bold text-cp-gold uppercase">{adjType}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-cp-text-muted font-sans">Adjustment:</span>
+                <span className={`font-bold ${adjType === 'deduct' ? 'text-cp-negative' : 'text-cp-positive'}`}>
+                  {adjType === 'deduct' ? `-${adjAmount}` : `+${adjAmount}`} {adjAsset}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-cp-text-muted font-sans">Procedure:</span>
+                <span className="text-cp-text-secondary capitalize font-sans">{adjProcedure.replace('_', ' ')}</span>
+              </div>
+              <div className="border-t border-cp-border/60 pt-1.5">
+                <span className="text-cp-text-muted font-sans text-[10px] block uppercase font-bold">Reason:</span>
+                <p className="text-cp-text-primary font-sans text-xs mt-0.5">{adjReason}</p>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-cp-text-secondary leading-relaxed">
+              This balance adjustment will be executed immediately, the user's available balance will be updated,
+              and this compliance event will be permanently written to the audit log.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-cp-border">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAdjConfirmDialog(false)}
+                disabled={isSubmittingAdj}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleExecuteAdjustment}
+                disabled={isSubmittingAdj}
+              >
+                {isSubmittingAdj ? 'Processing...' : 'Confirm & Write to Audit'}
+              </Button>
+            </div>
           </div>
         </div>
       )}

@@ -77,6 +77,71 @@ export interface AdminDepositMethod {
   enabled: boolean
 }
 
+export interface UserWalletDetail {
+  assetId: string
+  symbol: string
+  name: string
+  color?: string
+  priceUsd: number
+  availableBalance: number
+  lockedBalance: number
+  totalBalance: number
+  valueUsd: number
+}
+
+export interface UserBalanceSummary {
+  availableBalanceUsd: number
+  lockedBalanceUsd: number
+  totalBalanceUsd: number
+  totalDepositedUsd: number
+  totalDepositedCount: number
+  totalWithdrawalsUsd: number
+  totalWithdrawalsCount: number
+}
+
+export interface BalanceAdjustmentRecord {
+  id: string
+  asset: string
+  amount: number
+  valueUsd: number
+  status: string
+  notes?: string
+  createdAt: string
+}
+
+export interface UserTransactionRecord {
+  id: string
+  type: string
+  asset: string
+  amount: number
+  valueUsd: number
+  feeUsd: number
+  status: string
+  txHash?: string
+  network?: string
+  address?: string
+  notes?: string
+  createdAt: string
+}
+
+export interface UserBalanceDetailsResponse {
+  user: AdminUser
+  balanceSummary: UserBalanceSummary
+  wallets: UserWalletDetail[]
+  transactions: UserTransactionRecord[]
+  adjustments: BalanceAdjustmentRecord[]
+}
+
+export interface BalanceAdjustmentPayload {
+  asset: string
+  amount: number
+  type: 'add' | 'deduct' | 'correction' | 'credit' | 'debit'
+  procedure: 'verified_payment' | 'refund' | 'correction' | 'authorized_procedure'
+  reason: string
+  deltaDirection?: 'increase' | 'decrease'
+  targetBalance?: number
+}
+
 export interface AdminWithdrawalRecord {
   id: string
   withdrawalRef: string

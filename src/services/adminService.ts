@@ -13,6 +13,8 @@ import {
   AdminTraderRecord,
   AdminTradingStats,
   AdminTradingConfig,
+  UserBalanceDetailsResponse,
+  BalanceAdjustmentPayload,
 } from '@/mock/adminData'
 
 const normalizeAdminUser = (user: Partial<AdminUser> & Record<string, any>): AdminUser => ({
@@ -85,6 +87,20 @@ export const adminService = {
 
   async updateUserStatus(id: string | number, status: 'active' | 'suspended' | 'pending' | 'blocked') {
     const res = await apiClient.put(`/admin/users/${id}/status`, { status })
+    return res.data
+  },
+
+  async getUserBalanceDetails(id: string | number): Promise<UserBalanceDetailsResponse> {
+    const res = await apiClient.get<UserBalanceDetailsResponse>(`/admin/users/${id}/balance`)
+    return res.data
+  },
+
+  async adjustUserBalance(id: string | number, payload: BalanceAdjustmentPayload) {
+    const res = await apiClient.post<{
+      message: string
+      wallet: any
+      transaction: any
+    }>(`/admin/users/${id}/balance-adjustment`, payload)
     return res.data
   },
 
