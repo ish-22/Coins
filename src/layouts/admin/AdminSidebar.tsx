@@ -13,6 +13,7 @@ import {
   FileText,
   Sliders,
   ShieldAlert,
+  Bell,
 } from 'lucide-react'
 import { Logo } from '@/components/common/Logo'
 import { Badge } from '@/components/common/Badge'
@@ -80,6 +81,12 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: 'Announcements',
     href: '/admin/announcements',
     icon: Megaphone,
+  },
+  {
+    id: 'notifications',
+    label: 'Notifications Hub',
+    href: '/admin/notifications',
+    icon: Bell,
   },
   {
     id: 'assets',

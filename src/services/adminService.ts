@@ -15,6 +15,8 @@ import {
   AdminTradingConfig,
   UserBalanceDetailsResponse,
   BalanceAdjustmentPayload,
+  AdminNotificationDispatch,
+  SendNotificationPayload,
 } from '@/mock/adminData'
 
 const normalizeAdminUser = (user: Partial<AdminUser> & Record<string, any>): AdminUser => ({
@@ -307,6 +309,21 @@ export const adminService = {
 
   async updateSettings(settings: Record<string, unknown>) {
     const res = await apiClient.put('/admin/settings', { settings })
+    return res.data
+  },
+
+  async getNotificationHistory(): Promise<{ dispatches: AdminNotificationDispatch[]; totalSent: number }> {
+    const res = await apiClient.get<{ dispatches: AdminNotificationDispatch[]; totalSent: number }>('/admin/notifications/history')
+    return res.data
+  },
+
+  async sendNotification(payload: SendNotificationPayload): Promise<{ message: string; dispatch: AdminNotificationDispatch; deliveredCount: number }> {
+    const res = await apiClient.post<{ message: string; dispatch: AdminNotificationDispatch; deliveredCount: number }>('/admin/notifications/send', payload)
+    return res.data
+  },
+
+  async deleteNotificationDispatch(id: string | number): Promise<{ message: string }> {
+    const res = await apiClient.delete(`/admin/notifications/history/${id}`)
     return res.data
   },
 }

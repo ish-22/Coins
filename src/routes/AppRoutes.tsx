@@ -48,6 +48,7 @@ const AdminAnnouncements = lazy(() => import('@/pages/admin/AdminAnnouncements')
 const AdminAssets = lazy(() => import('@/pages/admin/AdminAssets').then((m) => ({ default: m.AdminAssets })))
 const AdminSettings = lazy(() => import('@/pages/admin/AdminSettings').then((m) => ({ default: m.AdminSettings })))
 const AdminAuditLogs = lazy(() => import('@/pages/admin/AdminAuditLogs').then((m) => ({ default: m.AdminAuditLogs })))
+const AdminNotifications = lazy(() => import('@/pages/admin/AdminNotifications').then((m) => ({ default: m.AdminNotifications })))
 
 const RouteLoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center min-h-[40vh] w-full">
@@ -82,6 +83,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="orders" element={<AdminOrders />} />
           <Route path="support" element={<AdminSupport />} />
           <Route path="announcements" element={<AdminAnnouncements />} />
+          <Route path="notifications" element={<AdminNotifications />} />
           <Route path="assets" element={<AdminAssets />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="audit-logs" element={<AdminAuditLogs />} />

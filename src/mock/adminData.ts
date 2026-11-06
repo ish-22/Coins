@@ -142,6 +142,35 @@ export interface BalanceAdjustmentPayload {
   targetBalance?: number
 }
 
+export interface AdminNotificationDispatch {
+  id: string
+  adminName: string
+  adminEmail: string
+  title: string
+  message: string
+  type: 'deposit' | 'kyc' | 'trading' | 'account' | 'security' | 'system'
+  priority: 'normal' | 'high' | 'urgent'
+  targetType: 'all' | 'individual' | 'selected'
+  targetCount: number
+  targetSummary: string
+  targetUserIds?: string[]
+  linkText?: string
+  linkHref?: string
+  createdAt: string
+  timestamp?: string
+}
+
+export interface SendNotificationPayload {
+  title: string
+  message: string
+  type: 'deposit' | 'kyc' | 'trading' | 'account' | 'security' | 'system'
+  priority?: 'normal' | 'high' | 'urgent'
+  targetType: 'all' | 'individual' | 'selected'
+  targetUserIds?: string[]
+  linkText?: string
+  linkHref?: string
+}
+
 export interface AdminWithdrawalRecord {
   id: string
   withdrawalRef: string
