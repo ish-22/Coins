@@ -83,6 +83,7 @@ export interface AdminOrderRecord {
   orderRef: string
   userId: string
   userName: string
+  userEmail?: string
   pair: string
   side: 'buy' | 'sell'
   type: 'limit' | 'market' | 'stop_limit'
@@ -91,7 +92,59 @@ export interface AdminOrderRecord {
   filled: number
   totalUsd: number
   status: 'open' | 'filled' | 'cancelled'
+  pnlUsd?: number
+  isWin?: boolean | null
   createdAt: string
+}
+
+export interface AdminTraderRecord {
+  id: string
+  userRef: string
+  name: string
+  email: string
+  role: string
+  country: string
+  status: string
+  kycTier: string
+  registeredAt: string
+  totalTrades: number
+  openTrades: number
+  filledTrades: number
+  volumeUsd: number
+  winningTrades: number
+  losingTrades: number
+  winRate: number
+  totalPnl: number
+  riskScore: 'Low' | 'Medium' | 'High'
+}
+
+export interface AdminTradingStats {
+  totalTradesCount: number
+  activeTradesCount: number
+  completedTradesCount: number
+  totalVolumeUsd: number
+  totalWinningTrades: number
+  totalLosingTrades: number
+  platformWinRate: number
+  totalPnlUsd: number
+  totalTradersCount: number
+}
+
+export interface AdminTradingConfig {
+  engine_status: 'active' | 'maintenance'
+  base_maker_fee: number
+  base_taker_fee: number
+  slippage_tolerance: number
+  max_leverage: number
+  unverified_daily_limit_usd: number
+  tier1_daily_limit_usd: number
+  tier2_daily_limit_usd: number
+  tier3_daily_limit_usd: number
+  simulation_win_rate: number
+  demo_initial_balance_usd: number
+  demo_slippage_model: 'tight' | 'normal' | 'volatile'
+  market_integrity_protection?: boolean
+  regulatory_disclosure?: string
 }
 
 export interface AdminSupportMessage {

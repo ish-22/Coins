@@ -78,6 +78,7 @@ export const AppRoutes: React.FC = () => {
           <Route path="kyc" element={<AdminKYC />} />
           <Route path="deposits" element={<AdminDeposits />} />
           <Route path="withdrawals" element={<AdminWithdrawals />} />
+          <Route path="trading" element={<AdminOrders />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="support" element={<AdminSupport />} />
           <Route path="announcements" element={<AdminAnnouncements />} />

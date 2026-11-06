@@ -9,6 +9,9 @@ import {
   AdminAssetRecord,
   AdminAuditLog,
   AdminSupportTicket,
+  AdminTraderRecord,
+  AdminTradingStats,
+  AdminTradingConfig,
 } from '@/mock/adminData'
 
 const normalizeAdminUser = (user: Partial<AdminUser> & Record<string, any>): AdminUser => ({
@@ -115,6 +118,45 @@ export const adminService = {
   async getOrders(): Promise<AdminOrderRecord[]> {
     const res = await apiClient.get<{ orders: AdminOrderRecord[] }>('/admin/orders')
     return res.data.orders
+  },
+
+  async getTradingOverview(): Promise<{
+    orders: AdminOrderRecord[]
+    traders: AdminTraderRecord[]
+    stats: AdminTradingStats
+    settings: AdminTradingConfig
+  }> {
+    const res = await apiClient.get<{
+      orders: AdminOrderRecord[]
+      traders: AdminTraderRecord[]
+      stats: AdminTradingStats
+      settings: AdminTradingConfig
+    }>('/admin/trading/overview')
+    return res.data
+  },
+
+  async getTraderPerformance(id: string | number): Promise<{
+    trader: AdminTraderRecord
+    performance: any
+    history: AdminOrderRecord[]
+  }> {
+    const res = await apiClient.get<{
+      trader: AdminTraderRecord
+      performance: any
+      history: AdminOrderRecord[]
+    }>(`/admin/trading/traders/${id}`)
+    return res.data
+  },
+
+  async updateTradingSettings(settings: Partial<AdminTradingConfig>): Promise<{
+    settings: AdminTradingConfig
+    message: string
+  }> {
+    const res = await apiClient.put<{
+      settings: AdminTradingConfig
+      message: string
+    }>('/admin/trading/settings', { settings })
+    return res.data
   },
 
   async cancelOrder(id: string) {

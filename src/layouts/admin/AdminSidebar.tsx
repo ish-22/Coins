@@ -63,9 +63,9 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     badge: { text: '2 Review', variant: 'negative' },
   },
   {
-    id: 'orders',
-    label: 'Orders & Trades',
-    href: '/admin/orders',
+    id: 'trading',
+    label: 'Trading Management',
+    href: '/admin/trading',
     icon: ArrowLeftRight,
   },
   {
@@ -128,7 +128,9 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ onItemClick }) => {
         </div>
 
         {ADMIN_NAV_ITEMS.map((item) => {
-          const isActive = location.pathname === item.href
+          const isActive =
+            location.pathname === item.href ||
+            (item.id === 'trading' && (location.pathname === '/admin/trading' || location.pathname === '/admin/orders'))
           const Icon = item.icon
 
           return (
