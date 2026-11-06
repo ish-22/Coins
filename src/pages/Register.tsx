@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   User,
   Mail,
+  Phone,
   Lock,
   Eye,
   EyeOff,
@@ -33,6 +34,7 @@ export const Register: React.FC = () => {
   // Form states
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [country, setCountry] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -44,6 +46,7 @@ export const Register: React.FC = () => {
   const [errors, setErrors] = useState<{
     fullName?: string
     email?: string
+    phone?: string
     country?: string
     password?: string
     confirmPassword?: string
@@ -138,6 +141,7 @@ export const Register: React.FC = () => {
       await authService.register({
         fullName: fullName.trim(),
         email: email.trim(),
+        phone: phone.trim() || undefined,
         password,
         country,
         acceptTerms,
@@ -224,6 +228,24 @@ export const Register: React.FC = () => {
                   error={errors.email}
                   disabled={isSubmitting}
                   autoComplete="email"
+                />
+              </div>
+
+              {/* Phone Number */}
+              <div>
+                <Input
+                  label="Phone Number"
+                  type="tel"
+                  placeholder="e.g. +1 (555) 019-8921"
+                  value={phone}
+                  onChange={(e) => {
+                    setPhone(e.target.value)
+                    if (errors.phone) setErrors((prev) => ({ ...prev, phone: undefined }))
+                  }}
+                  leftIcon={<Phone className="w-4 h-4" />}
+                  error={errors.phone}
+                  disabled={isSubmitting}
+                  autoComplete="tel"
                 />
               </div>
 

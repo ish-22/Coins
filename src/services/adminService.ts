@@ -16,14 +16,15 @@ const normalizeAdminUser = (user: Partial<AdminUser> & Record<string, any>): Adm
   userRef: user.userRef ?? user.uid ?? 'UID-N/A',
   name: user.name ?? user.full_name ?? 'Unknown User',
   email: user.email ?? '',
+  phone: user.phone ?? user.phone_number ?? 'Not provided',
   role: user.role ?? 'user',
   country: user.country ?? 'United States',
   countryCode: user.countryCode ?? user.country_code ?? 'US',
-  status: (user.status as AdminUser['status']) ?? 'pending',
+  status: (user.status as AdminUser['status']) ?? 'active',
   kycTier: (user.kycTier as AdminUser['kycTier']) ?? 'Tier 0',
   balanceUsd: Number(user.balanceUsd ?? 0),
   registeredAt: user.registeredAt ?? user.created_at ?? 'N/A',
-  lastLogin: user.lastLogin ?? 'N/A',
+  lastLogin: user.lastLogin ?? 'Active recently',
   twoFactorEnabled: Boolean(user.twoFactorEnabled ?? false),
   passkeyRegistered: Boolean(user.passkeyRegistered ?? user.passkeysRegistered ?? false),
   ipAddress: user.ipAddress ?? '127.0.0.1',
@@ -43,6 +44,7 @@ export const adminService = {
   async createUser(data: {
     name: string
     email: string
+    phone?: string
     password?: string
     role?: string
     status?: string
@@ -59,6 +61,7 @@ export const adminService = {
     data: {
       name?: string
       email?: string
+      phone?: string
       password?: string
       role?: string
       status?: string
@@ -76,7 +79,7 @@ export const adminService = {
     return res.data
   },
 
-  async updateUserStatus(id: string | number, status: 'active' | 'suspended' | 'pending') {
+  async updateUserStatus(id: string | number, status: 'active' | 'suspended' | 'pending' | 'blocked') {
     const res = await apiClient.put(`/admin/users/${id}/status`, { status })
     return res.data
   },

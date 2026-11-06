@@ -9,11 +9,12 @@ export interface AdminUser {
   userRef: string
   name: string
   email: string
+  phone?: string
   role?: 'admin' | 'super_admin' | 'operator' | 'user' | string
   country: string
   countryCode: string
-  status: 'active' | 'suspended' | 'pending'
-  kycTier: 'Tier 0' | 'Tier 1' | 'Tier 2'
+  status: 'active' | 'suspended' | 'pending' | 'blocked'
+  kycTier: 'Tier 0' | 'Tier 1' | 'Tier 2' | string
   balanceUsd: number
   registeredAt: string
   lastLogin: string

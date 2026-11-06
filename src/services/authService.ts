@@ -37,6 +37,7 @@ export const authService = {
   async register(data: {
     fullName: string
     email: string
+    phone?: string
     password: string
     country?: string
     acceptTerms: boolean
@@ -47,6 +48,8 @@ export const authService = {
       localStorage.setItem('cp_user', JSON.stringify(res.data.user))
       localStorage.removeItem('cp_user_account_profile')
       window.dispatchEvent(new Event('cp_auth_changed'))
+      // Broadcast registration event so Admin Panel updates automatically in real-time
+      window.dispatchEvent(new CustomEvent('cp_user_registered', { detail: res.data.user }))
     }
     return res.data
   },
