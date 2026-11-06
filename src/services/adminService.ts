@@ -14,6 +14,7 @@ import {
   AdminTradingStats,
   AdminTradingConfig,
   UserBalanceDetailsResponse,
+  AdminUserDetailsResponse,
   BalanceAdjustmentPayload,
   AdminNotificationDispatch,
   SendNotificationPayload,
@@ -94,6 +95,11 @@ export const adminService = {
 
   async getUserBalanceDetails(id: string | number): Promise<UserBalanceDetailsResponse> {
     const res = await apiClient.get<UserBalanceDetailsResponse>(`/admin/users/${id}/balance`)
+    return res.data
+  },
+
+  async getUserDetails(id: string | number): Promise<AdminUserDetailsResponse> {
+    const res = await apiClient.get<AdminUserDetailsResponse>(`/admin/users/${id}/details`)
     return res.data
   },
 

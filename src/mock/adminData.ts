@@ -132,6 +132,62 @@ export interface UserBalanceDetailsResponse {
   adjustments: BalanceAdjustmentRecord[]
 }
 
+export interface UserKycDetails {
+  status: 'approved' | 'rejected' | 'in_review' | 'pending' | 'not_submitted'
+  tier: string
+  caseRef: string
+  documentType: string
+  documentNumber: string
+  proofOfAddressType: string
+  idFrontPath: string | null
+  idBackPath: string | null
+  proofOfAddressPath: string | null
+  rejectionReason: string | null
+  submittedAt: string | null
+  reviewedAt: string | null
+}
+
+export interface UserTradingDetails {
+  summary: {
+    totalTrades: number
+    filledTrades: number
+    winningTrades: number
+    losingTrades: number
+    winRate: number
+    totalVolumeUsd: number
+  }
+  orders: Array<{
+    id: string
+    pair: string
+    side: 'buy' | 'sell'
+    type: 'limit' | 'market' | 'stop_limit'
+    price: number
+    amount: number
+    filled: number
+    total: number
+    status: string
+    createdAt: string | null
+  }>
+}
+
+export interface AdminUserDetailsResponse {
+  user: AdminUser
+  kyc: UserKycDetails
+  balances: {
+    totalBalanceUsd: number
+    availableBalanceUsd: number
+    lockedBalanceUsd: number
+    totalDepositedUsd: number
+    totalDepositedCount: number
+    totalWithdrawalsUsd: number
+    totalWithdrawalsCount: number
+    assets: UserWalletDetail[]
+  }
+  deposits: UserTransactionRecord[]
+  withdrawals: UserTransactionRecord[]
+  trading: UserTradingDetails
+}
+
 export interface BalanceAdjustmentPayload {
   asset: string
   amount: number
