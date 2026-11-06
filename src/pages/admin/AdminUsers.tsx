@@ -619,7 +619,19 @@ export const AdminUsers: React.FC = () => {
 
                     {/* KYC Tier */}
                     <td className="py-3.5 px-4">
-                      <span className="font-semibold text-cp-text-primary">{user.kycTier}</span>
+                      <span
+                        className={`inline-flex items-center gap-1 font-bold text-xs ${
+                          user.kycTier.toUpperCase().includes('VERIFIED')
+                            ? 'text-cp-positive'
+                            : user.kycTier.toLowerCase().includes('in review')
+                            ? 'text-cp-gold'
+                            : user.kycTier.toLowerCase().includes('rejected')
+                            ? 'text-cp-negative'
+                            : 'text-cp-text-muted'
+                        }`}
+                      >
+                        {user.kycTier.toUpperCase().includes('VERIFIED') ? '✓ VERIFIED' : user.kycTier}
+                      </span>
                     </td>
 
                     {/* Balance */}

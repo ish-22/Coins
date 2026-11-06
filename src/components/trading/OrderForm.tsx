@@ -8,6 +8,8 @@ import {
   Info,
   CheckCircle2,
   Lock,
+  ShieldAlert,
+  ShieldCheck,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { Button } from '@/components/common/Button'
@@ -38,8 +40,18 @@ export const OrderForm: React.FC<OrderFormProps> = ({
   availableCrypto,
   onReviewOrder,
 }) => {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
+
+  const isKycVerified = Boolean(
+    !user ||
+    user.role === 'admin' ||
+    user.role === 'super_admin' ||
+    user.role === 'support_specialist' ||
+    user.role === 'compliance_officer' ||
+    (user.verificationTier && String(user.verificationTier).toLowerCase().includes('verified')) ||
+    (user.kyc_tier && String(user.kyc_tier).toLowerCase().includes('verified'))
+  )
   const [side, setSide] = useState<'buy' | 'sell'>('buy')
   const [orderType, setOrderType] = useState<'limit' | 'market' | 'stop_limit'>('limit')
   const [priceInput, setPriceInput] = useState<string>(pair.price.toString())
@@ -99,6 +111,11 @@ export const OrderForm: React.FC<OrderFormProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMsg(null)
+
+    if (isAuthenticated && !isKycVerified) {
+      setErrorMsg('Trading is restricted. Please complete KYC verification and await administrator approval.')
+      return
+    }
 
     if (orderType !== 'market' && (!parsedPrice || parsedPrice <= 0)) {
       setErrorMsg('Please enter a valid price.')
@@ -341,17 +358,42 @@ export const OrderForm: React.FC<OrderFormProps> = ({
           </div>
         )}
 
-        {/* Submit Review Button or Guest Login Prompt */}
+        {/* Submit Review Button, Unverified KYC Notice, or Guest Login Prompt */}
         {isAuthenticated ? (
-          <Button
-            type="submit"
-            variant={side === 'buy' ? 'success' : 'danger'}
-            size="lg"
-            fullWidth
-            className="text-xs uppercase tracking-wider font-bold py-3 mt-2"
-          >
-            {side === 'buy' ? `Review Buy ${pair.baseAsset}` : `Review Sell ${pair.baseAsset}`}
-          </Button>
+          !isKycVerified ? (
+            <div className="space-y-2.5 mt-2">
+              <div className="p-3 rounded-xl bg-cp-gold/10 border border-cp-gold/30 text-xs space-y-1.5">
+                <div className="flex items-center gap-2 text-cp-gold font-bold">
+                  <ShieldAlert className="w-4 h-4 shrink-0" />
+                  <span>KYC Verification Required</span>
+                </div>
+                <p className="text-[11px] text-cp-text-muted leading-relaxed">
+                  Your trading account is unverified. Regulatory rules require approved identity verification from the administrator to place spot trades.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                fullWidth
+                onClick={() => navigate('/kyc')}
+                className="text-xs uppercase tracking-wider font-bold py-3"
+                leftIcon={<ShieldCheck className="w-4 h-4" />}
+              >
+                Complete Identity Verification
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="submit"
+              variant={side === 'buy' ? 'success' : 'danger'}
+              size="lg"
+              fullWidth
+              className="text-xs uppercase tracking-wider font-bold py-3 mt-2"
+            >
+              {side === 'buy' ? `Review Buy ${pair.baseAsset}` : `Review Sell ${pair.baseAsset}`}
+            </Button>
+          )
         ) : (
           <div className="space-y-2 mt-2">
             <Button

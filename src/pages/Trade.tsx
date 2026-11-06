@@ -60,7 +60,7 @@ export const Trade: React.FC = () => {
 
   // Toast notification
   const [toastMessage, setToastMessage] = useState<{
-    type: 'success' | 'info'
+    type: 'success' | 'info' | 'error'
     text: string
   } | null>(null)
 
@@ -215,8 +215,17 @@ export const Trade: React.FC = () => {
         newOrder.status = apiRes.order.status
       }
       fetchWalletBalances()
-    } catch {
-      // Graceful offline fallback
+    } catch (err: any) {
+      const errorMsg =
+        err?.response?.data?.message ||
+        'Order execution rejected by exchange compliance engine.'
+      setToastMessage({
+        type: 'error',
+        text: errorMsg,
+      })
+      setModalOpen(false)
+      setPendingOrder(null)
+      return
     }
 
     if (pendingOrder.side === 'buy') {
@@ -291,7 +300,11 @@ export const Trade: React.FC = () => {
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-20 right-4 sm:right-8 z-50 flex items-center gap-3 px-4 py-3 rounded-xl bg-cp-elevated border border-cp-gold/60 text-cp-text-primary shadow-elevated animate-in slide-in-from-top-4 duration-200">
-          <CheckCircle2 className="w-5 h-5 text-cp-positive shrink-0" />
+          {toastMessage.type === 'error' ? (
+            <AlertCircle className="w-5 h-5 text-cp-negative shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-5 h-5 text-cp-positive shrink-0" />
+          )}
           <span className="text-xs font-semibold">{toastMessage.text}</span>
           <button
             type="button"

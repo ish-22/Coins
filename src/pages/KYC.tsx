@@ -144,6 +144,7 @@ export const KYC: React.FC = () => {
 
   // Database verification submissions history state
   const [submissions, setSubmissions] = useState<any[]>([])
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null)
 
   // Fetch user KYC verification status on mount from backend
   useEffect(() => {
@@ -154,16 +155,20 @@ export const KYC: React.FC = () => {
         const tier = res.data?.currentTier || user.kyc_tier || ''
         const subs = res.data?.submissions || []
         setSubmissions(subs)
-        if (tier.includes('Verified') || tier.includes('Tier 2')) {
+        const latestSubmission = subs[0]
+        if (tier === 'VERIFIED' || tier.includes('Verified')) {
           setStatus('approved')
         } else if (subs.some((s: any) => s.status === 'in_review' || s.status === 'pending') || tier.includes('In Review')) {
           setStatus('pending_review')
-        } else if (tier.includes('Tier 1')) {
-          setStatus('approved')
+        } else if (tier.includes('Rejected') || (latestSubmission && latestSubmission.status === 'rejected')) {
+          setStatus('rejected')
+          setRejectionReason(latestSubmission?.rejection_reason || 'Document verification requirements were not met.')
+        } else {
+          setStatus('not_started')
         }
       })
       .catch(() => {
-        if (user.kyc_tier?.includes('Verified') || user.kyc_tier?.includes('Tier 2')) {
+        if (user.kyc_tier === 'VERIFIED' || user.kyc_tier?.includes('Verified')) {
           setStatus('approved')
         }
       })
@@ -186,9 +191,12 @@ export const KYC: React.FC = () => {
         addressLine1: formData.streetAddress,
         city: formData.city,
         postalCode: formData.postalCode,
-        documentType: formData.docType,
+        documentType: formData.docType === 'passport' ? 'Passport' : formData.docType === 'id_card' ? 'National ID' : formData.docType === 'drivers_license' ? "Driver's License" : 'Residence Permit',
         documentNumber: formData.docNumber,
-        proofOfAddressType: formData.addressDocType,
+        proofOfAddressType: formData.addressDocType === 'utility_bill' ? 'Utility Bill' : formData.addressDocType === 'bank_statement' ? 'Bank Statement' : 'Tax Assessment Document',
+        idFront: formData.frontDoc?.name,
+        idBack: formData.backDoc?.name,
+        proofOfAddress: formData.addressDoc?.name,
       })
       .then(() => {
         setIsSubmitting(false)
@@ -293,6 +301,7 @@ export const KYC: React.FC = () => {
       {/* Verification Status Card & Switcher */}
       <StatusBanner
         status={status}
+        rejectionReason={rejectionReason}
         onStatusChange={(newStatus) => setStatus(newStatus)}
         onResubmit={handleResubmit}
         onStartVerification={() => {

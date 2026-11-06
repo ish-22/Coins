@@ -16,6 +16,7 @@ import { KYCStatus, REJECTION_SAMPLE_EXPLANATION } from '@/mock/kycData'
 
 export interface StatusBannerProps {
   status: KYCStatus
+  rejectionReason?: string | null
   onStatusChange: (newStatus: KYCStatus) => void
   onResubmit: () => void
   onStartVerification: () => void
@@ -23,6 +24,7 @@ export interface StatusBannerProps {
 
 export const StatusBanner: React.FC<StatusBannerProps> = ({
   status,
+  rejectionReason,
   onStatusChange,
   onResubmit,
   onStartVerification,
@@ -180,13 +182,13 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({
           <div className="p-4 rounded-xl bg-cp-elevated border border-cp-border space-y-2 text-xs">
             <div className="flex items-center gap-2 text-cp-negative font-semibold">
               <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>Reason: {REJECTION_SAMPLE_EXPLANATION.reason}</span>
+              <span>Reason: {rejectionReason || REJECTION_SAMPLE_EXPLANATION.reason}</span>
             </div>
             <p className="text-cp-text-secondary text-[11px] leading-relaxed">
-              {REJECTION_SAMPLE_EXPLANATION.details}
+              {rejectionReason ? `Official Compliance Feedback: ${rejectionReason}` : REJECTION_SAMPLE_EXPLANATION.details}
             </p>
             <div className="pt-2 border-t border-cp-border/50 text-[11px] text-cp-gold font-medium">
-              💡 Advice: {REJECTION_SAMPLE_EXPLANATION.suggestedAction}
+              💡 Advice: Please review the rejection reason above, ensure documents are high-resolution, unexpired, and match your registered legal name, then submit again.
             </div>
           </div>
         </div>
