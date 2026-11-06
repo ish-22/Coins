@@ -44,6 +44,17 @@ export const walletService = {
     return res.data
   },
 
+  async requestDeposit(payload: {
+    asset: string
+    amount: number
+    network?: string
+    txHash?: string
+    address?: string
+  }) {
+    const res = await apiClient.post('/wallet/deposit/request', payload)
+    return res.data
+  },
+
   async withdraw(payload: {
     asset: string
     network: string

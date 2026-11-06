@@ -3,6 +3,7 @@ import {
   AdminUser,
   AdminKycCase,
   AdminDepositRecord,
+  AdminDepositMethod,
   AdminWithdrawalRecord,
   AdminOrderRecord,
   AdminAnnouncement,
@@ -100,9 +101,29 @@ export const adminService = {
     return res.data
   },
 
-  async getDeposits(): Promise<AdminDepositRecord[]> {
-    const res = await apiClient.get<{ deposits: AdminDepositRecord[] }>('/admin/deposits')
+  async getDeposits(params?: { status?: string; user_id?: string; asset?: string; q?: string }): Promise<AdminDepositRecord[]> {
+    const res = await apiClient.get<{ deposits: AdminDepositRecord[] }>('/admin/deposits', { params })
     return res.data.deposits
+  },
+
+  async reviewDeposit(id: string | number, action: 'approve' | 'reject', reason?: string): Promise<{ message: string; deposit: AdminDepositRecord }> {
+    const res = await apiClient.post(`/admin/deposits/${id}/review`, { action, reason })
+    return res.data
+  },
+
+  async getDepositMethods(): Promise<AdminDepositMethod[]> {
+    const res = await apiClient.get<{ methods: AdminDepositMethod[] }>('/admin/deposits/methods')
+    return res.data.methods
+  },
+
+  async updateDepositMethods(methods: AdminDepositMethod[]): Promise<{ message: string; methods: AdminDepositMethod[] }> {
+    const res = await apiClient.put<{ message: string; methods: AdminDepositMethod[] }>('/admin/deposits/methods', { methods })
+    return res.data
+  },
+
+  async updateDepositWalletAddress(asset: string, address: string, network?: string, memo?: string): Promise<{ message: string; methods: AdminDepositMethod[] }> {
+    const res = await apiClient.post<{ message: string; methods: AdminDepositMethod[] }>('/admin/deposits/wallet-address', { asset, address, network, memo })
+    return res.data
   },
 
   async getWithdrawals(): Promise<AdminWithdrawalRecord[]> {

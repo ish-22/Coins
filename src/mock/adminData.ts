@@ -49,15 +49,32 @@ export interface AdminDepositRecord {
   txHash: string
   userId: string
   userName: string
+  userEmail?: string
+  userRef?: string
   asset: string
   network: string
   amount: number
   amountUsd: number
-  status: 'completed' | 'confirming' | 'pending'
+  status: 'completed' | 'confirming' | 'pending' | 'rejected'
   confirmations: number
   requiredConfirmations: number
   destinationAddress: string
+  rejectionReason?: string
+  notes?: string
   createdAt: string
+}
+
+export interface AdminDepositMethod {
+  id: string
+  asset: string
+  name: string
+  network: string
+  address: string
+  minDeposit: number
+  confirmations: number
+  memoRequired?: boolean
+  memo?: string | null
+  enabled: boolean
 }
 
 export interface AdminWithdrawalRecord {
