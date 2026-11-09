@@ -78,6 +78,21 @@ export const Dashboard: React.FC = () => {
 
   React.useEffect(() => {
     fetchSummary()
+    const timer = setInterval(() => {
+      fetchSummary()
+    }, 10000)
+
+    const handleFocus = () => {
+      fetchSummary()
+    }
+    window.addEventListener('focus', handleFocus)
+    window.addEventListener('storage', handleFocus)
+
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('storage', handleFocus)
+    }
   }, [])
 
   const handleRefresh = async () => {

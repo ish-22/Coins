@@ -147,7 +147,7 @@ export const KYC: React.FC = () => {
   const [rejectionReason, setRejectionReason] = useState<string | null>(null)
 
   // Fetch user KYC verification status on mount from backend
-  useEffect(() => {
+  const checkKycStatus = () => {
     if (!user) return
     apiClient
       .get('/kyc/status')
@@ -172,6 +172,16 @@ export const KYC: React.FC = () => {
           setStatus('approved')
         }
       })
+  }
+
+  useEffect(() => {
+    checkKycStatus()
+    const timer = setInterval(checkKycStatus, 8000)
+    window.addEventListener('focus', checkKycStatus)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', checkKycStatus)
+    }
   }, [user])
 
   // Submit for Review

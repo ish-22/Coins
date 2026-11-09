@@ -70,10 +70,11 @@ export const AdminAuditLogs: React.FC = () => {
 
   // Client-Side CSV Export
   const handleExportCsv = () => {
-    const headers = ['Event ID', 'Timestamp', 'Operator', 'Action', 'Category', 'Target', 'Result', 'IP Address', 'Details']
+    const headers = ['Event ID', 'Timestamp', 'Administrator ID', 'Operator', 'Action', 'Category', 'Target', 'Result', 'IP Address', 'Details & Reason']
     const rows = filteredLogs.map((l) => [
       l.eventId,
       l.timestamp,
+      `"${l.adminId || 'ADM-1'}"`,
       `"${l.adminName} (${l.adminEmail})"`,
       `"${l.action}"`,
       `"${l.category}"`,
@@ -155,10 +156,12 @@ export const AdminAuditLogs: React.FC = () => {
             >
               <option value="all">All Categories</option>
               <option value="User Management">User Management</option>
-              <option value="KYC Review">KYC Review</option>
+              <option value="KYC Review">KYC Decisions / Review</option>
+              <option value="Financial Adjustment">Financial Adjustments</option>
+              <option value="Trading Configuration">Trading Configuration Changes</option>
               <option value="Withdrawal Approval">Withdrawal Approval</option>
               <option value="System Settings">System Settings</option>
-              <option value="Authentication">Authentication</option>
+              <option value="Authentication">Authentication & Login Activity</option>
             </select>
 
             {/* Result Filter */}
@@ -216,7 +219,12 @@ export const AdminAuditLogs: React.FC = () => {
 
                     <td className="py-3.5 px-4">
                       <div>
-                        <span className="font-semibold text-cp-text-primary block">{log.adminName}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-cp-text-primary block">{log.adminName}</span>
+                          <span className="text-[10px] text-cp-gold font-mono font-bold">
+                            ({log.adminId || 'ADM-1'})
+                          </span>
+                        </div>
                         <span className="text-[10px] text-cp-text-muted font-mono block">{log.adminEmail}</span>
                       </div>
                     </td>
