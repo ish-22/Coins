@@ -207,6 +207,7 @@ export const AdminSupport: React.FC = () => {
         setSelectedTicket((prev) => (prev ? { ...prev, status: newStatus } : null))
       }
       triggerToast(`Conversation ${selectedTicket?.ticketRef || ticketId} updated to ${newStatus}.`)
+      window.dispatchEvent(new Event('cp_admin_metrics_refresh'))
       fetchLiveTickets(true)
     } catch (err: any) {
       triggerToast(err?.response?.data?.message || 'Failed to update ticket status.')

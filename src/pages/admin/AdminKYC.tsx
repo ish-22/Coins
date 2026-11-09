@@ -159,6 +159,7 @@ export const AdminKYC: React.FC = () => {
             decisionType === 'approve' ? 'Approved (Status: VERIFIED)' : 'Rejected'
           } successfully.`
       )
+      window.dispatchEvent(new Event('cp_admin_metrics_refresh'))
       setTimeout(() => setToastMessage(null), 4000)
     } catch (error: any) {
       setDecisionError(error?.response?.data?.message || 'The KYC decision could not be submitted to the backend.')

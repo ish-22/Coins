@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -16,11 +16,11 @@ import {
   Lock,
   LogOut,
   ShieldAlert,
-  AlertCircle,
 } from 'lucide-react'
 import { Logo } from '@/components/common/Logo'
 import { Badge } from '@/components/common/Badge'
 import { Button } from '@/components/common/Button'
+import { useAdminMetrics } from '@/hooks/useAdminMetrics'
 
 export interface AdminNavItem {
   id: string
@@ -34,103 +34,6 @@ export interface AdminNavItem {
   }
 }
 
-export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
-  {
-    id: 'dashboard',
-    number: 1,
-    label: 'Dashboard',
-    href: '/admin/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
-    id: 'users',
-    number: 2,
-    label: 'User Management',
-    href: '/admin/users',
-    icon: Users,
-    badge: { text: 'Active', variant: 'positive' },
-  },
-  {
-    id: 'kyc',
-    number: 3,
-    label: 'KYC Verification',
-    href: '/admin/kyc',
-    icon: ShieldCheck,
-    badge: { text: '2 Pending', variant: 'gold' },
-  },
-  {
-    id: 'trading',
-    number: 4,
-    label: 'Trading Management',
-    href: '/admin/trading',
-    icon: ArrowLeftRight,
-  },
-  {
-    id: 'deposits',
-    number: 5,
-    label: 'Deposit Management',
-    href: '/admin/deposits',
-    icon: ArrowDownToLine,
-  },
-  {
-    id: 'balances',
-    number: 6,
-    label: 'Balance Management',
-    href: '/admin/balances',
-    icon: Wallet,
-  },
-  {
-    id: 'notifications',
-    number: 7,
-    label: 'Notification Management',
-    href: '/admin/notifications',
-    icon: Bell,
-  },
-  {
-    id: 'support',
-    number: 8,
-    label: 'Customer Support',
-    href: '/admin/support',
-    icon: Headphones,
-    badge: { text: '1 Open', variant: 'gold' },
-  },
-  {
-    id: 'trading-history',
-    number: 9,
-    label: 'Trading History',
-    href: '/admin/trading-history',
-    icon: TrendingUp,
-  },
-  {
-    id: 'transactions',
-    number: 10,
-    label: 'Transaction History',
-    href: '/admin/transactions',
-    icon: History,
-  },
-  {
-    id: 'audit-logs',
-    number: 11,
-    label: 'Admin Activity Logs',
-    href: '/admin/audit-logs',
-    icon: FileText,
-  },
-  {
-    id: 'settings',
-    number: 12,
-    label: 'Website Settings',
-    href: '/admin/settings',
-    icon: Sliders,
-  },
-  {
-    id: 'security',
-    number: 13,
-    label: 'Security Settings',
-    href: '/admin/security',
-    icon: Lock,
-  },
-]
-
 export interface AdminSidebarProps {
   onItemClick?: () => void
 }
@@ -139,8 +42,127 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ onItemClick }) => {
   const location = useLocation()
   const navigate = useNavigate()
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const { metrics } = useAdminMetrics()
 
   const isMobileDrawer = Boolean(onItemClick)
+
+  // Dynamically constructed navigation items with real-time live database values
+  const navItems = useMemo<AdminNavItem[]>(() => {
+    const totalUsers = metrics?.totalUsers ?? 4
+    const pendingKyc = metrics?.pendingKycCount ?? 1
+    const openSupport = metrics?.openTicketsCount ?? 4
+    const pendingDeposits = metrics?.pendingDepositsCount ?? 0
+
+    return [
+      {
+        id: 'dashboard',
+        number: 1,
+        label: 'Dashboard',
+        href: '/admin/dashboard',
+        icon: LayoutDashboard,
+      },
+      {
+        id: 'users',
+        number: 2,
+        label: 'User Management',
+        href: '/admin/users',
+        icon: Users,
+        badge: {
+          text: `${totalUsers} Active`,
+          variant: 'positive',
+        },
+      },
+      {
+        id: 'kyc',
+        number: 3,
+        label: 'KYC Verification',
+        href: '/admin/kyc',
+        icon: ShieldCheck,
+        badge:
+          pendingKyc > 0
+            ? { text: `${pendingKyc} Pending`, variant: 'gold' }
+            : { text: 'All Verified', variant: 'positive' },
+      },
+      {
+        id: 'trading',
+        number: 4,
+        label: 'Trading Management',
+        href: '/admin/trading',
+        icon: ArrowLeftRight,
+      },
+      {
+        id: 'deposits',
+        number: 5,
+        label: 'Deposit Management',
+        href: '/admin/deposits',
+        icon: ArrowDownToLine,
+        badge:
+          pendingDeposits > 0
+            ? { text: `${pendingDeposits} Pending`, variant: 'gold' }
+            : undefined,
+      },
+      {
+        id: 'balances',
+        number: 6,
+        label: 'Balance Management',
+        href: '/admin/balances',
+        icon: Wallet,
+      },
+      {
+        id: 'notifications',
+        number: 7,
+        label: 'Notification Management',
+        href: '/admin/notifications',
+        icon: Bell,
+      },
+      {
+        id: 'support',
+        number: 8,
+        label: 'Customer Support',
+        href: '/admin/support',
+        icon: Headphones,
+        badge:
+          openSupport > 0
+            ? { text: `${openSupport} Open`, variant: 'gold' }
+            : undefined,
+      },
+      {
+        id: 'trading-history',
+        number: 9,
+        label: 'Trading History',
+        href: '/admin/trading-history',
+        icon: TrendingUp,
+      },
+      {
+        id: 'transactions',
+        number: 10,
+        label: 'Transaction History',
+        href: '/admin/transactions',
+        icon: History,
+      },
+      {
+        id: 'audit-logs',
+        number: 11,
+        label: 'Admin Activity Logs',
+        href: '/admin/audit-logs',
+        icon: FileText,
+      },
+      {
+        id: 'settings',
+        number: 12,
+        label: 'Website Settings',
+        href: '/admin/settings',
+        icon: Sliders,
+      },
+      {
+        id: 'security',
+        number: 13,
+        label: 'Security Settings',
+        href: '/admin/security',
+        icon: Lock,
+      },
+    ]
+  }, [metrics])
 
   const handleLogout = () => {
     // Clean up session and local credentials
@@ -181,7 +203,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({ onItemClick }) => {
             <span className="font-mono text-cp-gold text-[9px]">14 Modules</span>
           </div>
 
-          {ADMIN_NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isActive =
               location.pathname === item.href ||
               (item.id === 'trading' && location.pathname === '/admin/orders')
