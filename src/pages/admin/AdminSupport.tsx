@@ -23,6 +23,7 @@ import { adminService } from '@/services/adminService'
 
 export const AdminSupport: React.FC = () => {
   const [tickets, setTickets] = useState<AdminSupportTicket[]>([])
+  const ticketsRef = useRef<AdminSupportTicket[]>([])
   const [metrics, setMetrics] = useState<{
     totalTickets: number
     unreadTotal: number
@@ -62,27 +63,81 @@ export const AdminSupport: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500)
   }
 
+  // Fast equality comparison to avoid blinking / re-renders
+  const isTicketsEqual = (prev: AdminSupportTicket[], next: AdminSupportTicket[]) => {
+    if (prev.length !== next.length) return false
+    for (let i = 0; i < prev.length; i++) {
+      const a = prev[i]
+      const b = next[i]
+      if (
+        String(a.id) !== String(b.id) ||
+        a.status !== b.status ||
+        (a.unreadCount ?? 0) !== (b.unreadCount ?? 0) ||
+        a.updatedAt !== b.updatedAt ||
+        a.messages.length !== b.messages.length
+      ) {
+        return false
+      }
+      if (a.messages.length > 0 && b.messages.length > 0) {
+        const lastA = a.messages[a.messages.length - 1]
+        const lastB = b.messages[b.messages.length - 1]
+        if (lastA.id !== lastB.id || lastA.isRead !== lastB.isRead) {
+          return false
+        }
+      }
+    }
+    return true
+  }
+
   // Fetch tickets from API with real-time sync
   const fetchLiveTickets = async (silent = false) => {
     try {
-      if (!silent) setIsLoading(true)
+      if (!silent && ticketsRef.current.length === 0) setIsLoading(true)
       const res = await adminService.getSupportTickets({
         q: searchQuery.trim() || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
       })
 
       if (res && res.tickets) {
-        setTickets(res.tickets)
+        if (!isTicketsEqual(ticketsRef.current, res.tickets)) {
+          ticketsRef.current = res.tickets
+          setTickets(res.tickets)
+        }
         if (res.metrics) {
-          setMetrics(res.metrics)
+          const m = res.metrics
+          setMetrics((prev) => {
+            if (
+              prev.totalTickets === m.totalTickets &&
+              prev.unreadTotal === m.unreadTotal &&
+              prev.openCount === m.openCount &&
+              prev.inProgressCount === m.inProgressCount &&
+              prev.waitingUserCount === m.waitingUserCount &&
+              prev.resolvedCount === m.resolvedCount &&
+              prev.closedCount === m.closedCount
+            ) {
+              return prev
+            }
+            return m
+          })
         }
 
         // Live real-time update of selected conversation if open
         if (selectedTicketIdRef.current) {
-          const currentId = selectedTicketIdRef.current
-          const updated = res.tickets.find((t) => t.id === currentId)
+          const currentId = String(selectedTicketIdRef.current)
+          const updated = res.tickets.find((t) => String(t.id) === currentId)
           if (updated) {
-            setSelectedTicket(updated)
+            setSelectedTicket((prev) => {
+              if (!prev) return updated
+              if (
+                prev.messages.length !== updated.messages.length ||
+                prev.status !== updated.status ||
+                prev.unreadCount !== updated.unreadCount ||
+                prev.updatedAt !== updated.updatedAt
+              ) {
+                return updated
+              }
+              return prev
+            })
           }
         }
       }
@@ -177,25 +232,27 @@ export const AdminSupport: React.FC = () => {
 
       const updatedMessages = [...selectedTicket.messages, newMsg]
 
-      setTickets((prev) =>
-        prev.map((t) =>
-          t.id === selectedTicket.id
+      setTickets((prev) => {
+        const nextList: AdminSupportTicket[] = prev.map((t) =>
+          String(t.id) === String(selectedTicket.id)
             ? {
                 ...t,
-                status: 'waiting_user',
+                status: 'waiting_user' as const,
                 unreadCount: 0,
                 updatedAt: 'Just now',
                 messages: updatedMessages,
               }
             : t
         )
-      )
+        ticketsRef.current = nextList
+        return nextList
+      })
 
       setSelectedTicket((prev) =>
         prev
           ? {
               ...prev,
-              status: 'waiting_user',
+              status: 'waiting_user' as const,
               unreadCount: 0,
               updatedAt: 'Just now',
               messages: updatedMessages,

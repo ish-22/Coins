@@ -56,6 +56,7 @@ export const Support: React.FC = () => {
 
   // Support Tickets State
   const [tickets, setTickets] = useState<SupportTicket[]>([])
+  const ticketsRef = useRef<SupportTicket[]>([])
   const [isLoadingTickets, setIsLoadingTickets] = useState(false)
   const [totalUnread, setTotalUnread] = useState(0)
 
@@ -79,27 +80,69 @@ export const Support: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3000)
   }
 
+  // Fast equality comparison to avoid redundant re-renders
+  const isTicketsEqual = (prev: SupportTicket[], next: SupportTicket[]) => {
+    if (prev.length !== next.length) return false
+    for (let i = 0; i < prev.length; i++) {
+      const a = prev[i]
+      const b = next[i]
+      if (
+        String(a.id) !== String(b.id) ||
+        a.status !== b.status ||
+        (a.unreadCount ?? 0) !== (b.unreadCount ?? 0) ||
+        a.updatedAt !== b.updatedAt ||
+        a.messages.length !== b.messages.length
+      ) {
+        return false
+      }
+      if (a.messages.length > 0 && b.messages.length > 0) {
+        const lastA = a.messages[a.messages.length - 1]
+        const lastB = b.messages[b.messages.length - 1]
+        if (lastA.id !== lastB.id || lastA.isRead !== lastB.isRead) {
+          return false
+        }
+      }
+    }
+    return true
+  }
+
   // Fetch live tickets
   const fetchTickets = async (showLoading = false) => {
     if (!user) return
     try {
-      if (showLoading) setIsLoadingTickets(true)
+      if (showLoading && ticketsRef.current.length === 0) setIsLoadingTickets(true)
       const data = await supportService.getTickets()
-      if (data && data.tickets) {
-        setTickets(data.tickets)
-        setTotalUnread(data.totalUnread || 0)
+      if (data && Array.isArray(data.tickets)) {
+        if (!isTicketsEqual(ticketsRef.current, data.tickets)) {
+          ticketsRef.current = data.tickets
+          setTickets(data.tickets)
+        }
+        setTotalUnread((prev) => (prev !== (data.totalUnread || 0) ? (data.totalUnread || 0) : prev))
 
         // If a ticket is currently open in modal, update its messages in real-time
         if (selectedTicketIdRef.current) {
-          const updatedSelected = data.tickets.find((t) => t.id === selectedTicketIdRef.current)
+          const currentId = String(selectedTicketIdRef.current)
+          const updatedSelected = data.tickets.find((t) => String(t.id) === currentId)
           if (updatedSelected) {
-            setSelectedTicket(updatedSelected)
+            setSelectedTicket((prev) => {
+              if (!prev) return updatedSelected
+              if (
+                prev.messages.length !== updatedSelected.messages.length ||
+                prev.status !== updatedSelected.status ||
+                prev.unreadCount !== updatedSelected.unreadCount ||
+                prev.updatedAt !== updatedSelected.updatedAt
+              ) {
+                return updatedSelected
+              }
+              return prev
+            })
           }
         }
       }
     } catch {
-      // Fallback to local demonstration if backend is unreachable
-      if (tickets.length === 0) {
+      // Fallback only if never loaded and no user authenticated
+      if (ticketsRef.current.length === 0 && !user) {
+        ticketsRef.current = INITIAL_SUPPORT_TICKETS
         setTickets(INITIAL_SUPPORT_TICKETS)
       }
     } finally {
@@ -131,11 +174,33 @@ export const Support: React.FC = () => {
     )
   }
 
+  // Open conversation & immediately clear unread badge locally
+  const handleSelectTicket = async (t: SupportTicket) => {
+    setSelectedTicket(t)
+    if ((t.unreadCount ?? 0) > 0) {
+      const cleared = { ...t, unreadCount: 0 }
+      setTickets((prev) =>
+        prev.map((item) => (String(item.id) === String(t.id) ? cleared : item))
+      )
+      ticketsRef.current = ticketsRef.current.map((item) =>
+        String(item.id) === String(t.id) ? cleared : item
+      )
+      setTotalUnread((prev) => Math.max(0, prev - (t.unreadCount || 0)))
+      try {
+        await supportService.markTicketRead(t.id)
+      } catch {
+        // ignore
+      }
+    }
+  }
+
   // Handle new ticket created
   const handleTicketCreated = (newTicket: SupportTicket) => {
     setTickets((prev) => [newTicket, ...prev])
+    ticketsRef.current = [newTicket, ...ticketsRef.current]
     setSelectedTicket(newTicket)
     triggerToast(`Support ticket ${newTicket.ticketRef || newTicket.id} submitted successfully!`)
+    fetchTickets(false)
   }
 
   // Handle add live reply to ticket
@@ -143,9 +208,9 @@ export const Support: React.FC = () => {
     try {
       const response = await supportService.replyTicket(ticketId, replyText)
       // Update ticket locally immediately
-      setTickets((prev) =>
-        prev.map((t) => {
-          if (t.id === ticketId) {
+      setTickets((prev) => {
+        const nextList = prev.map((t) => {
+          if (String(t.id) === String(ticketId)) {
             const updatedMessages = [
               ...t.messages,
               response.reply,
@@ -156,14 +221,16 @@ export const Support: React.FC = () => {
               updatedAt: 'Just now',
               messages: updatedMessages,
             }
-            if (selectedTicket?.id === ticketId) {
+            if (String(selectedTicket?.id) === String(ticketId)) {
               setSelectedTicket(updated)
             }
             return updated
           }
           return t
         })
-      )
+        ticketsRef.current = nextList
+        return nextList
+      })
       triggerToast('Reply dispatched to support team.')
       // Quick re-fetch to sync
       fetchTickets(false)
@@ -550,7 +617,7 @@ export const Support: React.FC = () => {
               return (
                 <div
                   key={t.id}
-                  onClick={() => setSelectedTicket(t)}
+                  onClick={() => handleSelectTicket(t)}
                   className={`p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-cp-elevated/40 transition-colors cursor-pointer group ${
                     hasUnread ? 'bg-cp-gold/5 border-l-2 border-l-cp-gold' : ''
                   }`}
@@ -585,6 +652,10 @@ export const Support: React.FC = () => {
                     <Button
                       variant={hasUnread ? 'primary' : 'outline'}
                       size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleSelectTicket(t)
+                      }}
                       className="h-8 text-xs border-cp-border hover:border-cp-gold"
                     >
                       Open Chat <ArrowRight className="w-3.5 h-3.5 ml-1" />
