@@ -330,9 +330,12 @@ export const adminService = {
     return res.data
   },
 
-  async getAuditLogs(): Promise<AdminAuditLog[]> {
-    const res = await apiClient.get<{ logs: AdminAuditLog[] }>('/admin/audit-logs')
-    return res.data.logs
+  async getAuditLogs(params?: { q?: string; category?: string; limit?: number }): Promise<AdminAuditLog[]> {
+    const res = await apiClient.get<any>('/admin/audit-logs', { params })
+    if (Array.isArray(res.data)) return res.data
+    if (Array.isArray(res.data?.logs)) return res.data.logs
+    if (Array.isArray(res.data?.data)) return res.data.data
+    return []
   },
 
   async getSettings() {
