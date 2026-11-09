@@ -100,35 +100,41 @@ export const Header: React.FC = () => {
     }
 
     let isMounted = true
-    notificationService
-      .getNotifications()
-      .then((items) => {
-        if (!isMounted || !items || items.length === 0) return
-        const mapped = items.slice(0, 5).map((n) => {
-          const icon =
-            n.category === 'trading'
-              ? CheckCircle2
-              : n.category === 'security'
-              ? ShieldCheck
-              : n.category === 'transactions'
-              ? TrendingUp
-              : Sparkles
+    const fetchNotifs = () => {
+      notificationService
+        .getNotifications()
+        .then((items) => {
+          if (!isMounted || !items) return
+          const mapped = items.slice(0, 5).map((n) => {
+            const icon =
+              n.category === 'trading'
+                ? CheckCircle2
+                : n.category === 'security'
+                ? ShieldCheck
+                : n.category === 'transactions'
+                ? TrendingUp
+                : Sparkles
 
-          return {
-            id: n.id,
-            title: n.title,
-            desc: n.message,
-            time: n.timestamp || 'Recent',
-            icon,
-            isPositive: n.category !== 'security',
-          }
+            return {
+              id: n.id,
+              title: n.title,
+              desc: n.message,
+              time: n.timestamp || 'Recent',
+              icon,
+              isPositive: n.category !== 'security',
+            }
+          })
+          setHeaderNotifications(mapped)
         })
-        setHeaderNotifications(mapped)
-      })
-      .catch(() => {})
+        .catch(() => {})
+    }
+
+    fetchNotifs()
+    const notifTimer = setInterval(fetchNotifs, 10000)
 
     return () => {
       isMounted = false
+      clearInterval(notifTimer)
     }
   }, [isAuthenticated])
 

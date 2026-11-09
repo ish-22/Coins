@@ -43,6 +43,10 @@ const AdminKYC = lazy(() => import('@/pages/admin/AdminKYC').then((m) => ({ defa
 const AdminDeposits = lazy(() => import('@/pages/admin/AdminDeposits').then((m) => ({ default: m.AdminDeposits })))
 const AdminWithdrawals = lazy(() => import('@/pages/admin/AdminWithdrawals').then((m) => ({ default: m.AdminWithdrawals })))
 const AdminOrders = lazy(() => import('@/pages/admin/AdminOrders').then((m) => ({ default: m.AdminOrders })))
+const AdminBalances = lazy(() => import('@/pages/admin/AdminBalances').then((m) => ({ default: m.AdminBalances })))
+const AdminTradingHistory = lazy(() => import('@/pages/admin/AdminTradingHistory').then((m) => ({ default: m.AdminTradingHistory })))
+const AdminTransactions = lazy(() => import('@/pages/admin/AdminTransactions').then((m) => ({ default: m.AdminTransactions })))
+const AdminSecurity = lazy(() => import('@/pages/admin/AdminSecurity').then((m) => ({ default: m.AdminSecurity })))
 const AdminSupport = lazy(() => import('@/pages/admin/AdminSupport').then((m) => ({ default: m.AdminSupport })))
 const AdminAnnouncements = lazy(() => import('@/pages/admin/AdminAnnouncements').then((m) => ({ default: m.AdminAnnouncements })))
 const AdminAssets = lazy(() => import('@/pages/admin/AdminAssets').then((m) => ({ default: m.AdminAssets })))
@@ -77,16 +81,20 @@ export const AppRoutes: React.FC = () => {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="kyc" element={<AdminKYC />} />
-          <Route path="deposits" element={<AdminDeposits />} />
-          <Route path="withdrawals" element={<AdminWithdrawals />} />
           <Route path="trading" element={<AdminOrders />} />
-          <Route path="orders" element={<AdminOrders />} />
-          <Route path="support" element={<AdminSupport />} />
-          <Route path="announcements" element={<AdminAnnouncements />} />
+          <Route path="deposits" element={<AdminDeposits />} />
+          <Route path="balances" element={<AdminBalances />} />
           <Route path="notifications" element={<AdminNotifications />} />
-          <Route path="assets" element={<AdminAssets />} />
-          <Route path="settings" element={<AdminSettings />} />
+          <Route path="support" element={<AdminSupport />} />
+          <Route path="trading-history" element={<AdminTradingHistory />} />
+          <Route path="transactions" element={<AdminTransactions />} />
           <Route path="audit-logs" element={<AdminAuditLogs />} />
+          <Route path="settings" element={<AdminSettings />} />
+          <Route path="security" element={<AdminSecurity />} />
+          <Route path="withdrawals" element={<AdminWithdrawals />} />
+          <Route path="orders" element={<AdminOrders />} />
+          <Route path="announcements" element={<AdminAnnouncements />} />
+          <Route path="assets" element={<AdminAssets />} />
         </Route>
 
         {/* ── Customer App shell routes (sidebar + header layout) ── */}

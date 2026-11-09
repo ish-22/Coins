@@ -369,12 +369,23 @@ export interface AdminAssetRecord {
 export interface AdminAuditLog {
   id: string
   eventId: string
+  adminId?: string
   adminEmail: string
   adminName: string
   action: string
-  category: 'User Management' | 'KYC Review' | 'Withdrawal Approval' | 'Asset Config' | 'System Settings' | 'Authentication'
+  category:
+    | 'User Management'
+    | 'KYC Review'
+    | 'Financial Adjustment'
+    | 'Trading Configuration'
+    | 'Withdrawal Approval'
+    | 'Asset Config'
+    | 'System Settings'
+    | 'Authentication'
+    | string
   target: string
   details: string
+  reason?: string
   timestamp: string
   result: 'success' | 'failed' | 'warning'
   ipAddress: string

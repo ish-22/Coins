@@ -12,7 +12,7 @@ export interface UserAccountProfile {
   phone: string
   avatarInitials: string
   accountCreationDate: string
-  accountStatus: 'active' | 'suspended' | 'pending'
+  accountStatus: 'active' | 'suspended' | 'blocked' | 'pending'
   verificationTier: 'Tier 1 (Basic)' | 'Tier 2 (Verified)' | 'Tier 3 (Institutional)'
   vipLevel: string
 

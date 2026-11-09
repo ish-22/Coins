@@ -166,6 +166,14 @@ export const Deposit: React.FC = () => {
 
   useEffect(() => {
     loadDepositHistory()
+    const timer = setInterval(() => {
+      loadDepositHistory()
+    }, 8000)
+    window.addEventListener('focus', loadDepositHistory)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', loadDepositHistory)
+    }
   }, [])
 
   // Filtered deposit history

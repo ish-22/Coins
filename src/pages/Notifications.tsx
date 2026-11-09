@@ -92,6 +92,10 @@ export const Notifications: React.FC = () => {
 
   useEffect(() => {
     loadNotifications()
+    const timer = setInterval(() => {
+      loadNotifications()
+    }, 8000)
+    return () => clearInterval(timer)
   }, [])
 
   // Count unread

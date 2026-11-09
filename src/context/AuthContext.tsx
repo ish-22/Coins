@@ -138,6 +138,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (isAuthenticated) {
       refreshUser()
+      const timer = setInterval(() => {
+        refreshUser()
+      }, 15000)
+
+      const handleFocus = () => {
+        refreshUser()
+      }
+      window.addEventListener('focus', handleFocus)
+
+      return () => {
+        clearInterval(timer)
+        window.removeEventListener('focus', handleFocus)
+      }
     }
   }, [isAuthenticated, refreshUser])
 

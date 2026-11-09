@@ -93,6 +93,45 @@ export const Withdraw: React.FC = () => {
     }
   }, [toastMessage])
 
+  // Live database sync for withdrawal status
+  const loadWithdrawalHistory = () => {
+    walletService
+      .getTransactions()
+      .then((txs) => {
+        if (txs && txs.length > 0) {
+          const withdrawalsOnly = txs
+            .filter((t) => t.type === 'withdrawal')
+            .map((t) => ({
+              id: t.id,
+              txHash: t.txHash || '0x' + t.id,
+              asset: t.asset,
+              amount: t.amount,
+              receivedAmount: Math.max(0, t.amount - (t.feeUsd || 0)),
+              fee: t.feeUsd || 0,
+              network: t.network || 'Mainnet',
+              destinationAddress: t.address || 'External Wallet',
+              status: t.status as any,
+              date: t.date,
+              time: t.time,
+            }))
+          if (withdrawalsOnly.length > 0) {
+            setHistory(withdrawalsOnly)
+          }
+        }
+      })
+      .catch(() => {})
+  }
+
+  useEffect(() => {
+    loadWithdrawalHistory()
+    const timer = setInterval(loadWithdrawalHistory, 8000)
+    window.addEventListener('focus', loadWithdrawalHistory)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', loadWithdrawalHistory)
+    }
+  }, [])
+
   // Sync state if URL param changes
   useEffect(() => {
     if (coinParam) {
