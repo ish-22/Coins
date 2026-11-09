@@ -31,66 +31,6 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({
 }) => {
   return (
     <div className="space-y-3">
-      {/* State Switcher Bar for Demo Testing */}
-      <div className="p-2.5 rounded-xl bg-cp-elevated/70 border border-cp-border flex flex-wrap items-center justify-between gap-2 text-xs">
-        <div className="flex items-center gap-1.5 text-cp-text-secondary">
-          <Sparkles className="w-3.5 h-3.5 text-cp-gold" />
-          <span className="font-semibold text-cp-text-primary">Demonstration Status Switcher:</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-1">
-          <button
-            onClick={() => onStatusChange('not_started')}
-            className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
-              status === 'not_started'
-                ? 'bg-cp-gold text-cp-bg'
-                : 'bg-cp-card text-cp-text-secondary hover:text-cp-text-primary'
-            }`}
-          >
-            Not Started
-          </button>
-          <button
-            onClick={() => onStatusChange('in_progress')}
-            className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
-              status === 'in_progress'
-                ? 'bg-cp-gold text-cp-bg'
-                : 'bg-cp-card text-cp-text-secondary hover:text-cp-text-primary'
-            }`}
-          >
-            In Progress
-          </button>
-          <button
-            onClick={() => onStatusChange('pending_review')}
-            className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
-              status === 'pending_review'
-                ? 'bg-cp-gold text-cp-bg'
-                : 'bg-cp-card text-cp-text-secondary hover:text-cp-text-primary'
-            }`}
-          >
-            Pending Review
-          </button>
-          <button
-            onClick={() => onStatusChange('approved')}
-            className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
-              status === 'approved'
-                ? 'bg-cp-positive text-cp-bg'
-                : 'bg-cp-card text-cp-text-secondary hover:text-cp-positive'
-            }`}
-          >
-            Approved (Tier 2)
-          </button>
-          <button
-            onClick={() => onStatusChange('rejected')}
-            className={`px-2 py-1 rounded text-[11px] font-semibold transition-colors ${
-              status === 'rejected'
-                ? 'bg-cp-negative text-cp-bg'
-                : 'bg-cp-card text-cp-text-secondary hover:text-cp-negative'
-            }`}
-          >
-            Rejected
-          </button>
-        </div>
-      </div>
-
       {/* Main Status Cards */}
       {status === 'approved' && (
         <div className="p-5 rounded-2xl bg-gradient-to-r from-cp-card via-cp-elevated to-cp-card border border-cp-positive/40 shadow-card animate-in fade-in">
@@ -102,21 +42,16 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-bold text-cp-text-primary">
-                    Identity Verified (Tier 2 Approved)
+                    Identity Verified (VERIFIED Status)
                   </h3>
                   <Badge variant="positive" size="sm" withDot>
                     Verified
                   </Badge>
                 </div>
                 <p className="text-xs text-cp-text-secondary mt-0.5">
-                  Your government ID and proof of residence have been validated. You now enjoy maximum daily withdrawal limits of 100 BTC.
+                  Your government identification documents have been verified and approved by compliance. High-tier trading and elevated withdrawal limits are fully unlocked.
                 </p>
               </div>
-            </div>
-            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-              <Button variant="secondary" size="sm" onClick={() => onStatusChange('not_started')}>
-                Reset Verification
-              </Button>
             </div>
           </div>
         </div>
@@ -135,18 +70,17 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({
                     Verification In Review
                   </h3>
                   <Badge variant="gold" size="sm" withDot pulseDot>
-                    Pending Review
+                    Compliance Review Active
                   </Badge>
                 </div>
                 <p className="text-xs text-cp-text-secondary mt-0.5">
-                  Your identity documents have been submitted to the simulated compliance queue. Review typically completes within 1-2 hours.
+                  Your identity documents have been securely submitted to the compliance review desk. Once an administrator reviews and approves your submission, your account will update automatically.
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-              <Button variant="primary" size="sm" onClick={() => onStatusChange('approved')}>
-                Simulate Approval
-              </Button>
+            <div className="text-xs text-cp-gold/90 bg-cp-gold/10 border border-cp-gold/30 px-3 py-1.5 rounded-lg flex items-center gap-1.5 shrink-0">
+              <Clock className="w-3.5 h-3.5 animate-spin" />
+              <span>Awaiting Admin Decision</span>
             </div>
           </div>
         </div>

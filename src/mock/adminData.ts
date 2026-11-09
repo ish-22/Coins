@@ -30,17 +30,20 @@ export interface AdminKycCase {
   userName: string
   userEmail: string
   country: string
-  requestedTier: 'Tier 1' | 'Tier 2'
+  requestedTier: 'Tier 1' | 'Tier 2' | string
   status: 'pending' | 'in_review' | 'approved' | 'rejected'
   submittedAt: string
   reviewedAt?: string
-  documentType: 'Passport' | 'National ID' | 'Drivers License'
+  documentType: 'Passport' | 'National ID' | 'Drivers License' | string
   documentNumber: string
-  proofOfAddressType?: 'Utility Bill' | 'Bank Statement'
+  proofOfAddressType?: 'Utility Bill' | 'Bank Statement' | string
   rejectionReason?: string
   idFrontPlaceholder: string
   idBackPlaceholder: string
   proofOfAddressPlaceholder?: string
+  idFrontUrl?: string
+  idBackUrl?: string
+  proofOfAddressUrl?: string
 }
 
 export interface AdminDepositRecord {

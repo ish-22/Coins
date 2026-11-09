@@ -147,7 +147,8 @@ export const KYC: React.FC = () => {
   const [rejectionReason, setRejectionReason] = useState<string | null>(null)
 
   // Fetch user KYC verification status on mount from backend
-  const checkKycStatus = () => {
+  // Fetch user KYC verification status on mount from backend
+  const checkKycStatus = (force = false) => {
     if (!user) return
     apiClient
       .get('/kyc/status')
@@ -156,9 +157,15 @@ export const KYC: React.FC = () => {
         const subs = res.data?.submissions || []
         setSubmissions(subs)
         const latestSubmission = subs[0]
-        if (tier === 'VERIFIED' || tier.includes('Verified')) {
+
+        // Don't interrupt user if actively filling the form unless forced
+        if (!force && status === 'in_progress') {
+          return
+        }
+
+        if (tier === 'VERIFIED' || tier.includes('Verified') || latestSubmission?.status === 'approved') {
           setStatus('approved')
-        } else if (subs.some((s: any) => s.status === 'in_review' || s.status === 'pending') || tier.includes('In Review')) {
+        } else if (subs.some((s: any) => s.status === 'in_review' || s.status === 'pending') || tier.includes('In Review') || latestSubmission?.status === 'in_review') {
           setStatus('pending_review')
         } else if (tier.includes('Rejected') || (latestSubmission && latestSubmission.status === 'rejected')) {
           setStatus('rejected')
@@ -176,11 +183,11 @@ export const KYC: React.FC = () => {
 
   useEffect(() => {
     checkKycStatus()
-    const timer = setInterval(checkKycStatus, 8000)
-    window.addEventListener('focus', checkKycStatus)
+    const timer = setInterval(() => checkKycStatus(false), 8000)
+    window.addEventListener('focus', () => checkKycStatus(false))
     return () => {
       clearInterval(timer)
-      window.removeEventListener('focus', checkKycStatus)
+      window.removeEventListener('focus', () => checkKycStatus(false))
     }
   }, [user])
 
@@ -204,19 +211,19 @@ export const KYC: React.FC = () => {
         documentType: formData.docType === 'passport' ? 'Passport' : formData.docType === 'id_card' ? 'National ID' : formData.docType === 'drivers_license' ? "Driver's License" : 'Residence Permit',
         documentNumber: formData.docNumber,
         proofOfAddressType: formData.addressDocType === 'utility_bill' ? 'Utility Bill' : formData.addressDocType === 'bank_statement' ? 'Bank Statement' : 'Tax Assessment Document',
-        idFront: formData.frontDoc?.name,
-        idBack: formData.backDoc?.name,
-        proofOfAddress: formData.addressDoc?.name,
+        idFront: formData.frontDoc?.previewUrl || formData.frontDoc?.name,
+        idBack: formData.backDoc?.previewUrl || formData.backDoc?.name,
+        proofOfAddress: formData.addressDoc?.previewUrl || formData.addressDoc?.name,
       })
       .then(() => {
         setIsSubmitting(false)
         setStatus('pending_review')
         triggerToast('Identity verification submitted for compliance review!')
+        checkKycStatus(true)
       })
-      .catch(() => {
+      .catch((err) => {
         setIsSubmitting(false)
-        setStatus('pending_review')
-        triggerToast('Identity verification recorded for compliance review!')
+        triggerToast(err?.response?.data?.message || 'Verification submission failed. Please verify documents and retry.')
       })
   }
 
@@ -231,6 +238,11 @@ export const KYC: React.FC = () => {
 
   // Resubmit action
   const handleResubmit = () => {
+    setFormData((prev) => ({
+      ...prev,
+      frontDoc: null,
+      backDoc: null,
+    }))
     setStatus('in_progress')
     setCurrentStep(3) // Jump directly to document upload
     triggerToast('Ready to re-upload clear identification documents.')
@@ -860,6 +872,24 @@ export const KYC: React.FC = () => {
                         </span>
                       </div>
                     </div>
+
+                    {/* Image Previews if available */}
+                    {(formData.frontDoc?.previewUrl || formData.backDoc?.previewUrl) && (
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-cp-border/50">
+                        {formData.frontDoc?.previewUrl && (
+                          <div className="rounded-lg overflow-hidden border border-cp-border bg-black/40 p-1">
+                            <span className="text-[9px] text-cp-text-muted block truncate mb-1">Front Image:</span>
+                            <img src={formData.frontDoc.previewUrl} alt="Front ID" className="h-16 w-full object-cover rounded" />
+                          </div>
+                        )}
+                        {formData.backDoc?.previewUrl && (
+                          <div className="rounded-lg overflow-hidden border border-cp-border bg-black/40 p-1">
+                            <span className="text-[9px] text-cp-text-muted block truncate mb-1">Back Image:</span>
+                            <img src={formData.backDoc.previewUrl} alt="Back ID" className="h-16 w-full object-cover rounded" />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 

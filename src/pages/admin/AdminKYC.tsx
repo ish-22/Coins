@@ -13,6 +13,7 @@ import {
   ShieldAlert,
   UserCheck,
   FileCheck2,
+  RotateCw,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
@@ -50,6 +51,7 @@ export const AdminKYC: React.FC = () => {
     docNumber?: string
     applicantName?: string
     country?: string
+    fileUrl?: string
   } | null>(null)
 
   // Decision Modal State
@@ -59,27 +61,31 @@ export const AdminKYC: React.FC = () => {
   const [decisionError, setDecisionError] = useState<string | null>(null)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  useEffect(() => {
-    let isMounted = true
-    const loadCases = async () => {
-      try {
-        setIsLoading(true)
-        setLoadError(null)
-        const liveCases = await adminService.getKycCases()
-        if (isMounted) setCases(liveCases)
-      } catch (error: any) {
-        if (isMounted) {
-          setLoadError(error?.response?.data?.message || 'Unable to load KYC cases from the backend.')
-          setCases([])
-        }
-      } finally {
-        if (isMounted) setIsLoading(false)
+  const loadCases = async (isBackground = false) => {
+    try {
+      if (!isBackground) setIsLoading(true)
+      setLoadError(null)
+      const liveCases = await adminService.getKycCases()
+      setCases(liveCases)
+    } catch (error: any) {
+      if (!isBackground) {
+        setLoadError(error?.response?.data?.message || 'Unable to load KYC cases from the backend.')
+        setCases([])
       }
+    } finally {
+      if (!isBackground) setIsLoading(false)
     }
+  }
 
+  useEffect(() => {
     loadCases()
+    const timer = setInterval(() => {
+      loadCases(true)
+    }, 6000)
+    window.addEventListener('focus', () => loadCases(true))
     return () => {
-      isMounted = false
+      clearInterval(timer)
+      window.removeEventListener('focus', () => loadCases(true))
     }
   }, [])
 
@@ -178,6 +184,15 @@ export const AdminKYC: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => loadCases()}
+            disabled={isLoading}
+            leftIcon={<RotateCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />}
+          >
+            Refresh Queue
+          </Button>
           <Badge variant="gold" size="sm">
             Pending Queue: {cases.filter((c) => c.status === 'pending' || c.status === 'in_review').length}
           </Badge>
@@ -437,6 +452,7 @@ export const AdminKYC: React.FC = () => {
                       docNumber: selectedCase.documentNumber,
                       applicantName: selectedCase.userName,
                       country: selectedCase.country,
+                      fileUrl: selectedCase.idFrontUrl || selectedCase.idFrontPlaceholder,
                     })
                   }
                   className="p-3.5 rounded-xl bg-[#141d2b] hover:bg-[#182335] border border-cp-border hover:border-cp-gold/60 transition-all cursor-pointer space-y-2 group"
@@ -467,6 +483,7 @@ export const AdminKYC: React.FC = () => {
                       docNumber: selectedCase.documentNumber,
                       applicantName: selectedCase.userName,
                       country: selectedCase.country,
+                      fileUrl: selectedCase.idBackUrl || selectedCase.idBackPlaceholder,
                     })
                   }
                   className="p-3.5 rounded-xl bg-[#141d2b] hover:bg-[#182335] border border-cp-border hover:border-cp-gold/60 transition-all cursor-pointer space-y-2 group"
@@ -497,6 +514,7 @@ export const AdminKYC: React.FC = () => {
                         docType: selectedCase.proofOfAddressType || 'Utility Bill',
                         applicantName: selectedCase.userName,
                         country: selectedCase.country,
+                        fileUrl: selectedCase.proofOfAddressUrl || selectedCase.proofOfAddressPlaceholder,
                       })
                     }
                     className="sm:col-span-2 p-3.5 rounded-xl bg-[#141d2b] hover:bg-[#182335] border border-cp-border hover:border-cp-positive/60 transition-all cursor-pointer space-y-2 group"
@@ -588,67 +606,93 @@ export const AdminKYC: React.FC = () => {
               </button>
             </div>
 
-            {/* Document Graphic Visual Canvas */}
-            <div className="p-6 rounded-xl bg-gradient-to-br from-[#121c2c] to-[#0d1522] border border-cp-border space-y-4 relative overflow-hidden">
-              <div className="absolute right-4 top-4 opacity-10 pointer-events-none">
-                <ShieldCheck className="w-32 h-32 text-cp-gold" />
-              </div>
-
-              <div className="flex items-start justify-between border-b border-cp-border/60 pb-3">
-                <div>
-                  <span className="text-[10px] text-cp-gold font-mono uppercase tracking-widest block font-bold">
-                    Official Verification Document
-                  </span>
-                  <span className="text-sm font-black text-cp-text-primary block mt-0.5">
-                    {inspectedDoc.docType}
-                  </span>
+            {/* Document Graphic Visual Canvas or Real Uploaded Image */}
+            {inspectedDoc.fileUrl && (inspectedDoc.fileUrl.startsWith('data:image') || inspectedDoc.fileUrl.startsWith('http') || inspectedDoc.fileUrl.startsWith('storage') || inspectedDoc.fileUrl.startsWith('/storage')) ? (
+              <div className="space-y-4">
+                <div className="rounded-xl overflow-hidden border border-cp-border bg-black/70 flex items-center justify-center p-3 max-h-[380px]">
+                  <img
+                    src={inspectedDoc.fileUrl.startsWith('storage') ? `http://127.0.0.1:8000/${inspectedDoc.fileUrl}` : inspectedDoc.fileUrl}
+                    alt={inspectedDoc.title}
+                    className="max-h-[360px] max-w-full object-contain rounded-lg shadow-2xl"
+                  />
                 </div>
-                <Badge variant="gold" size="sm" className="font-mono">
-                  {inspectedDoc.country || 'International'}
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3 text-xs py-2">
-                <div className="p-3 rounded-lg bg-cp-card/60 border border-cp-border/60">
-                  <span className="text-[9px] text-cp-text-muted uppercase block font-semibold">Applicant</span>
-                  <span className="font-bold text-cp-text-primary block truncate mt-0.5">
-                    {inspectedDoc.applicantName || 'Verified Trader'}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-lg bg-cp-card/60 border border-cp-border/60">
-                  <span className="text-[9px] text-cp-text-muted uppercase block font-semibold">Document No.</span>
-                  <span className="font-mono font-bold text-cp-gold block truncate mt-0.5">
-                    {inspectedDoc.docNumber || 'DOC-948124'}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-lg bg-cp-card/60 border border-cp-border/60">
-                  <span className="text-[9px] text-cp-text-muted uppercase block font-semibold">File Format</span>
-                  <span className="font-mono text-cp-text-secondary block mt-0.5">
-                    {inspectedDoc.filename.endsWith('.pdf') ? 'PDF • 1.1 MB' : 'JPG • 2.4 MB'}
-                  </span>
+                <div className="grid grid-cols-3 gap-2.5 text-xs">
+                  <div className="p-2.5 rounded-lg bg-cp-card border border-cp-border">
+                    <span className="text-[9px] text-cp-text-muted uppercase block font-semibold">Applicant</span>
+                    <span className="font-bold text-cp-text-primary block truncate mt-0.5">{inspectedDoc.applicantName || 'Applicant'}</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-cp-card border border-cp-border">
+                    <span className="text-[9px] text-cp-text-muted uppercase block font-semibold">Document No.</span>
+                    <span className="font-mono font-bold text-cp-gold block truncate mt-0.5">{inspectedDoc.docNumber || 'N/A'}</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-cp-card border border-cp-border">
+                    <span className="text-[9px] text-cp-text-muted uppercase block font-semibold">Origin</span>
+                    <span className="text-cp-text-secondary block truncate mt-0.5">{inspectedDoc.country || 'International'}</span>
+                  </div>
                 </div>
               </div>
-
-              {/* Security MRZ / Barcode Lines Representation */}
-              <div className="p-3 rounded-lg bg-black/50 border border-cp-border font-mono text-[10px] text-cp-text-muted space-y-1">
-                <div className="tracking-[0.25em] text-cp-gold/80">
-                  P&lt;USA{inspectedDoc.applicantName?.replace(/\s+/g, '&lt;&lt;') || 'TRADER'}&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+            ) : (
+              <div className="p-6 rounded-xl bg-gradient-to-br from-[#121c2c] to-[#0d1522] border border-cp-border space-y-4 relative overflow-hidden">
+                <div className="absolute right-4 top-4 opacity-10 pointer-events-none">
+                  <ShieldCheck className="w-32 h-32 text-cp-gold" />
                 </div>
-                <div className="tracking-[0.25em] text-cp-text-muted">
-                  {inspectedDoc.docNumber || 'DOC-948124'}&lt;0USA9001014M3001018&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;4
+
+                <div className="flex items-start justify-between border-b border-cp-border/60 pb-3">
+                  <div>
+                    <span className="text-[10px] text-cp-gold font-mono uppercase tracking-widest block font-bold">
+                      Official Verification Document
+                    </span>
+                    <span className="text-sm font-black text-cp-text-primary block mt-0.5">
+                      {inspectedDoc.docType}
+                    </span>
+                  </div>
+                  <Badge variant="gold" size="sm" className="font-mono">
+                    {inspectedDoc.country || 'International'}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 text-xs py-2">
+                  <div className="p-3 rounded-lg bg-cp-card/60 border border-cp-border/60">
+                    <span className="text-[9px] text-cp-text-muted uppercase block font-semibold">Applicant</span>
+                    <span className="font-bold text-cp-text-primary block truncate mt-0.5">
+                      {inspectedDoc.applicantName || 'Verified Trader'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-cp-card/60 border border-cp-border/60">
+                    <span className="text-[9px] text-cp-text-muted uppercase block font-semibold">Document No.</span>
+                    <span className="font-mono font-bold text-cp-gold block truncate mt-0.5">
+                      {inspectedDoc.docNumber || 'DOC-948124'}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-cp-card/60 border border-cp-border/60">
+                    <span className="text-[9px] text-cp-text-muted uppercase block font-semibold">File Format</span>
+                    <span className="font-mono text-cp-text-secondary block mt-0.5">
+                      {inspectedDoc.filename.endsWith('.pdf') ? 'PDF • 1.1 MB' : 'JPG • 2.4 MB'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Security MRZ / Barcode Lines Representation */}
+                <div className="p-3 rounded-lg bg-black/50 border border-cp-border font-mono text-[10px] text-cp-text-muted space-y-1">
+                  <div className="tracking-[0.25em] text-cp-gold/80">
+                    P&lt;USA{inspectedDoc.applicantName?.replace(/\s+/g, '&lt;&lt;') || 'TRADER'}&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;
+                  </div>
+                  <div className="tracking-[0.25em] text-cp-text-muted">
+                    {inspectedDoc.docNumber || 'DOC-948124'}&lt;0USA9001014M3001018&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;4
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-cp-text-muted pt-1">
+                  <span className="flex items-center gap-1.5 text-cp-positive">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    Anti-Tamper Holographic Watermark Verified
+                  </span>
+                  <span className="font-mono text-[10px]">{inspectedDoc.filename}</span>
                 </div>
               </div>
-
-              <div className="flex items-center justify-between text-[11px] text-cp-text-muted pt-1">
-                <span className="flex items-center gap-1.5 text-cp-positive">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Anti-Tamper Holographic Watermark Verified
-                </span>
-                <span className="font-mono text-[10px]">{inspectedDoc.filename}</span>
-              </div>
-            </div>
+            )}
 
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-cp-border">
               <Button variant="outline" size="sm" onClick={() => setInspectedDoc(null)}>

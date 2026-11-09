@@ -64,12 +64,33 @@ export const MockDocumentUploader: React.FC<MockDocumentUploaderProps> = ({
     }
   }
 
-  // Handle actual file picker input (demonstration only, reads metadata without uploading)
+  // Handle actual file picker input
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const selected = e.target.files[0]
       const sizeMb = (selected.size / (1024 * 1024)).toFixed(1) + ' MB'
-      handleSimulateUpload(selected.name)
+      setIsUploading(true)
+      setUploadProgress(40)
+
+      const reader = new FileReader()
+      reader.onload = () => {
+        setUploadProgress(100)
+        setIsUploading(false)
+        onUpload({
+          id: `doc-${Date.now().toString().slice(-4)}`,
+          name: selected.name,
+          size: sizeMb,
+          type: selected.type || sampleFileType,
+          previewUrl: typeof reader.result === 'string' ? reader.result : undefined,
+          uploadedAt: 'Just now',
+          file: selected,
+        })
+      }
+      reader.onerror = () => {
+        setIsUploading(false)
+        handleSimulateUpload(selected.name)
+      }
+      reader.readAsDataURL(selected)
     }
   }
 
@@ -207,15 +228,21 @@ export const MockDocumentUploader: React.FC<MockDocumentUploaderProps> = ({
               </button>
             </div>
 
-            <div className="h-48 rounded-xl bg-cp-card border border-cp-border flex flex-col items-center justify-center p-4 text-center space-y-2">
-              <FileCheck className="w-12 h-12 text-cp-positive" />
-              <span className="text-xs font-semibold text-cp-text-primary">
-                Simulated Document Preview
-              </span>
-              <p className="text-[11px] text-cp-text-secondary max-w-xs">
-                {file.name} ({file.size}) has been validated with correct simulated resolution and clear readability.
-              </p>
-            </div>
+            {file.previewUrl ? (
+              <div className="max-h-60 rounded-xl overflow-hidden bg-black/60 border border-cp-border flex items-center justify-center p-2">
+                <img src={file.previewUrl} alt={file.name} className="max-h-56 max-w-full object-contain rounded-lg" />
+              </div>
+            ) : (
+              <div className="h-48 rounded-xl bg-cp-card border border-cp-border flex flex-col items-center justify-center p-4 text-center space-y-2">
+                <FileCheck className="w-12 h-12 text-cp-positive" />
+                <span className="text-xs font-semibold text-cp-text-primary">
+                  Attached Document Preview
+                </span>
+                <p className="text-[11px] text-cp-text-secondary max-w-xs">
+                  {file.name} ({file.size}) has been attached and is ready for submission.
+                </p>
+              </div>
+            )}
 
             <div className="flex justify-end pt-2">
               <Button variant="secondary" size="sm" onClick={() => setShowPreviewModal(false)}>

@@ -15,6 +15,7 @@ export interface UploadedMockDoc {
   type: string
   previewUrl?: string
   uploadedAt: string
+  file?: File
 }
 
 export interface KYCFormData {
