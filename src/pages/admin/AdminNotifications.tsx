@@ -76,27 +76,46 @@ export const AdminNotifications: React.FC = () => {
   }, [toastMessage])
 
   // Fetch dispatches history & users
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     try {
-      setIsLoading(true)
-      const [historyRes, usersRes] = await Promise.all([
+      if (!silent) setIsLoading(true)
+      const [historyResult, usersResult] = await Promise.allSettled([
         adminService.getNotificationHistory(),
         adminService.getUsers(),
       ])
-      setDispatches(historyRes.dispatches)
-      setUsers(usersRes)
-    } catch (err: any) {
-      setToastMessage({
-        type: 'error',
-        text: err?.response?.data?.message || 'Failed to load notifications history.',
-      })
+
+      if (historyResult.status === 'fulfilled' && historyResult.value?.dispatches) {
+        setDispatches(historyResult.value.dispatches)
+      } else if (historyResult.status === 'rejected' && !silent) {
+        const err = historyResult.reason
+        setToastMessage({
+          type: 'error',
+          text: err?.response?.data?.message || 'Failed to load notifications history.',
+        })
+      }
+
+      if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
+        setUsers(usersResult.value)
+      }
     } finally {
-      setIsLoading(false)
+      if (!silent) setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    loadData()
+    let isMounted = true
+    loadData(false)
+
+    const intervalId = setInterval(() => {
+      if (isMounted) {
+        loadData(true)
+      }
+    }, 8000)
+
+    return () => {
+      isMounted = false
+      clearInterval(intervalId)
+    }
   }, [])
 
   // Quick preset templates
@@ -323,7 +342,7 @@ export const AdminNotifications: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadData}
+            onClick={() => loadData(false)}
             disabled={isLoading}
             className="flex items-center gap-1.5"
           >
