@@ -115,7 +115,12 @@ export const Withdraw: React.FC = () => {
               time: t.time,
             }))
           if (withdrawalsOnly.length > 0) {
-            setHistory(withdrawalsOnly)
+            setHistory((prev) => {
+              if (prev.length === withdrawalsOnly.length && prev[0]?.status === withdrawalsOnly[0]?.status && prev[0]?.id === withdrawalsOnly[0]?.id) {
+                return prev
+              }
+              return withdrawalsOnly
+            })
           }
         }
       })

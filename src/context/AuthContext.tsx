@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { authService, accountService } from '@/services'
 import { UserAccountProfile, DEFAULT_USER_PROFILE } from '@/mock/accountData'
 
@@ -110,24 +110,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   })
 
   const [isLoading, setIsLoading] = useState(false)
+  const userRef = useRef<AuthUser | null>(user)
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
 
-  const refreshUser = useCallback(async () => {
+  const refreshUser = useCallback(async (isInitial = false) => {
     const curToken = localStorage.getItem('cp_token') || sessionStorage.getItem('cp_token')
     if (!curToken) return
 
     try {
-      setIsLoading(true)
+      if (isInitial && !userRef.current) {
+        setIsLoading(true)
+      }
       const profile = await accountService.getProfile()
       if (profile) {
         const normalized = normalizeUser(profile)
-        setUser(normalized)
+        setUser((prev) => {
+          if (!prev) return normalized
+          if (
+            prev.id === normalized.id &&
+            prev.accountStatus === normalized.accountStatus &&
+            prev.verificationTier === normalized.verificationTier &&
+            prev.role === normalized.role &&
+            prev.name === normalized.name &&
+            prev.email === normalized.email &&
+            prev.twoFactorEnabled === normalized.twoFactorEnabled
+          ) {
+            return prev
+          }
+          return normalized
+        })
         localStorage.setItem('cp_user', JSON.stringify(normalized))
         localStorage.setItem('cp_user_account_profile', JSON.stringify(normalized))
       }
     } catch (err) {
       // If error (e.g. offline), keep stored user
       const stored = authService.getStoredUser()
-      if (stored) {
+      if (stored && !userRef.current) {
         setUser(normalizeUser(stored))
       }
     } finally {
@@ -137,13 +157,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (isAuthenticated) {
-      refreshUser()
+      refreshUser(true)
       const timer = setInterval(() => {
-        refreshUser()
+        refreshUser(false)
       }, 15000)
 
       const handleFocus = () => {
-        refreshUser()
+        refreshUser(false)
       }
       window.addEventListener('focus', handleFocus)
 

@@ -11,11 +11,11 @@ export interface ProtectedRouteProps {
  * and remembers the intended destination in location.state.from.
  */
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user } = useAuth()
   const location = useLocation()
 
-  // Wait if auth state is restoring from token check
-  if (isLoading) {
+  // Wait if auth state is restoring from token check on initial mount
+  if (isLoading && !user) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="w-8 h-8 rounded-full border-2 border-cp-gold border-t-transparent animate-spin" />

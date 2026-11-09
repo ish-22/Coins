@@ -56,19 +56,29 @@ export const Dashboard: React.FC = () => {
     try {
       const summary = await walletService.getSummary()
       if (summary && summary.totalBalanceUsd >= 0) {
-        setPortfolioSummary({
-          totalBalanceUsd: summary.totalBalanceUsd,
-          totalBalanceBtc: summary.totalBalanceBtc,
-          totalBalanceEur: summary.totalBalanceEur,
-          availableBalanceUsd: summary.availableBalanceUsd,
-          availableBalanceBtc: summary.availableBalanceBtc,
-          lockedBalanceUsd: summary.lockedBalanceUsd,
-          lockedBalanceBtc: summary.lockedBalanceBtc,
-          change24hUsd: summary.change24hUsd,
-          change24hPercentage: summary.change24hPercentage,
-          totalAssetsCount: summary.totalAssetsCount,
-          verificationTier: summary.verificationTier || user?.verificationTier || 'Tier 0',
-          dailyWithdrawRemainingUsd: summary.dailyWithdrawRemainingUsd,
+        setPortfolioSummary((prev) => {
+          if (
+            prev.totalBalanceUsd === summary.totalBalanceUsd &&
+            prev.availableBalanceUsd === summary.availableBalanceUsd &&
+            prev.lockedBalanceUsd === summary.lockedBalanceUsd &&
+            prev.verificationTier === (summary.verificationTier || user?.verificationTier || 'Tier 0')
+          ) {
+            return prev
+          }
+          return {
+            totalBalanceUsd: summary.totalBalanceUsd,
+            totalBalanceBtc: summary.totalBalanceBtc,
+            totalBalanceEur: summary.totalBalanceEur,
+            availableBalanceUsd: summary.availableBalanceUsd,
+            availableBalanceBtc: summary.availableBalanceBtc,
+            lockedBalanceUsd: summary.lockedBalanceUsd,
+            lockedBalanceBtc: summary.lockedBalanceBtc,
+            change24hUsd: summary.change24hUsd,
+            change24hPercentage: summary.change24hPercentage,
+            totalAssetsCount: summary.totalAssetsCount,
+            verificationTier: summary.verificationTier || user?.verificationTier || 'Tier 0',
+            dailyWithdrawRemainingUsd: summary.dailyWithdrawRemainingUsd,
+          }
         })
       }
     } catch {

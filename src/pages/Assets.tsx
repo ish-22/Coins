@@ -51,9 +51,31 @@ export const Assets: React.FC = () => {
         walletService.getTransactions().catch(() => []),
       ])
 
-      if (sum) setSummary(sum)
-      if (asts) setAssets(asts)
-      if (txs) setTransactions(txs)
+      if (sum) {
+        setSummary((prev) => {
+          if (!prev) return sum
+          if (prev.totalBalanceUsd === sum.totalBalanceUsd && prev.availableBalanceUsd === sum.availableBalanceUsd) {
+            return prev
+          }
+          return sum
+        })
+      }
+      if (asts && asts.length > 0) {
+        setAssets((prev) => {
+          if (prev.length === asts.length && prev[0]?.totalBalance === asts[0]?.totalBalance && prev[0]?.id === asts[0]?.id) {
+            return prev
+          }
+          return asts
+        })
+      }
+      if (txs && txs.length > 0) {
+        setTransactions((prev) => {
+          if (prev.length === txs.length && prev[0]?.status === txs[0]?.status && prev[0]?.id === txs[0]?.id) {
+            return prev
+          }
+          return txs
+        })
+      }
     } finally {
       setIsLoading(false)
     }

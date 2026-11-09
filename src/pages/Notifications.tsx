@@ -74,12 +74,17 @@ export const Notifications: React.FC = () => {
   }
 
   // Fetch notifications from backend API
-  const loadNotifications = () => {
-    setIsLoading(true)
+  const loadNotifications = (showLoading = false) => {
+    if (showLoading) setIsLoading(true)
     notificationService.getNotifications()
       .then((data) => {
         if (data && Array.isArray(data)) {
-          setNotifications(data)
+          setNotifications((prev) => {
+            if (prev.length === data.length && prev[0]?.id === data[0]?.id && prev[0]?.isRead === data[0]?.isRead) {
+              return prev
+            }
+            return data
+          })
         }
       })
       .catch(() => {
@@ -91,11 +96,14 @@ export const Notifications: React.FC = () => {
   }
 
   useEffect(() => {
-    loadNotifications()
-    const timer = setInterval(() => {
-      loadNotifications()
-    }, 8000)
-    return () => clearInterval(timer)
+    loadNotifications(true)
+    const handleRefresh = () => loadNotifications(false)
+    const timer = setInterval(handleRefresh, 8000)
+    window.addEventListener('focus', handleRefresh)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', handleRefresh)
+    }
   }, [])
 
   // Count unread

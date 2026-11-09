@@ -131,8 +131,8 @@ export const Deposit: React.FC = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(true)
 
   // Fetch real deposit transactions from database
-  const loadDepositHistory = () => {
-    setIsLoadingHistory(true)
+  const loadDepositHistory = (showLoading = false) => {
+    if (showLoading) setIsLoadingHistory(true)
     walletService
       .getTransactions()
       .then((txs) => {
@@ -151,28 +151,30 @@ export const Deposit: React.FC = () => {
               address: t.address || 'CoinPlus Deposit Vault',
               confirmations: t.confirmations || 'Confirmed',
             }))
-          setDepositHistory(depositsOnly)
+          setDepositHistory((prev) => {
+            if (prev.length === depositsOnly.length && prev[0]?.status === depositsOnly[0]?.status && prev[0]?.id === depositsOnly[0]?.id) {
+              return prev
+            }
+            return depositsOnly
+          })
         } else {
-          setDepositHistory([])
+          setDepositHistory((prev) => (prev.length === 0 ? prev : []))
         }
       })
-      .catch(() => {
-        setDepositHistory([])
-      })
+      .catch(() => {})
       .finally(() => {
         setIsLoadingHistory(false)
       })
   }
 
   useEffect(() => {
-    loadDepositHistory()
-    const timer = setInterval(() => {
-      loadDepositHistory()
-    }, 8000)
-    window.addEventListener('focus', loadDepositHistory)
+    loadDepositHistory(true)
+    const handleRefresh = () => loadDepositHistory(false)
+    const timer = setInterval(handleRefresh, 8000)
+    window.addEventListener('focus', handleRefresh)
     return () => {
       clearInterval(timer)
-      window.removeEventListener('focus', loadDepositHistory)
+      window.removeEventListener('focus', handleRefresh)
     }
   }, [])
 

@@ -124,7 +124,12 @@ export const Header: React.FC = () => {
               isPositive: n.category !== 'security',
             }
           })
-          setHeaderNotifications(mapped)
+          setHeaderNotifications((prev) => {
+            if (prev.length === mapped.length && prev[0]?.id === mapped[0]?.id) {
+              return prev
+            }
+            return mapped
+          })
         })
         .catch(() => {})
     }
