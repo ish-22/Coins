@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ShieldCheck,
@@ -43,9 +43,17 @@ export const KYC: React.FC = () => {
 
   // Current user verification status
   const [status, setStatus] = useState<KYCStatus>('not_started')
+  const statusRef = useRef<KYCStatus>(status)
+  useEffect(() => {
+    statusRef.current = status
+  }, [status])
 
   // Multi-step form step (1: Personal, 2: Address, 3: Document, 4: Review)
   const [currentStep, setCurrentStep] = useState<number>(1)
+  const currentStepRef = useRef<number>(currentStep)
+  useEffect(() => {
+    currentStepRef.current = currentStep
+  }, [currentStep])
 
   // Form draft initialized with user details when available
   const [formData, setFormData] = useState<KYCFormData>(() => {
@@ -60,9 +68,11 @@ export const KYC: React.FC = () => {
     }
   })
 
-  // Synchronize form if user loads asynchronously
+  // Synchronize form if user loads asynchronously (ONLY ONCE to prevent overwriting user input while typing)
+  const hasInitializedUserRef = useRef(false)
   useEffect(() => {
-    if (user) {
+    if (user && !hasInitializedUserRef.current) {
+      hasInitializedUserRef.current = true
       const parts = (user.fullName || user.name || '').trim().split(' ')
       setFormData((prev) => ({
         ...prev,
@@ -72,7 +82,7 @@ export const KYC: React.FC = () => {
         nationality: user.country || prev.nationality,
       }))
     }
-  }, [user])
+  }, [user?.id, user?.fullName, user?.name, user?.country])
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -132,7 +142,8 @@ export const KYC: React.FC = () => {
 
     setErrors({})
     setCurrentStep((prev) => Math.min(4, prev + 1))
-    if (status === 'not_started') {
+    if (statusRef.current === 'not_started') {
+      statusRef.current = 'in_progress'
       setStatus('in_progress')
     }
   }
@@ -145,51 +156,79 @@ export const KYC: React.FC = () => {
   // Database verification submissions history state
   const [submissions, setSubmissions] = useState<any[]>([])
   const [rejectionReason, setRejectionReason] = useState<string | null>(null)
+  const submissionsRef = useRef<any[]>([])
 
   // Fetch user KYC verification status on mount from backend
-  // Fetch user KYC verification status on mount from backend
-  const checkKycStatus = (force = false) => {
+  const checkKycStatus = useCallback((force = false) => {
     if (!user) return
     apiClient
       .get('/kyc/status')
       .then((res) => {
         const tier = res.data?.currentTier || user.kyc_tier || ''
         const subs = res.data?.submissions || []
-        setSubmissions(subs)
+
+        // Only update submissions if count or status changed
+        if (subs.length !== submissionsRef.current.length || subs[0]?.status !== submissionsRef.current[0]?.status) {
+          submissionsRef.current = subs
+          setSubmissions(subs)
+        }
+
         const latestSubmission = subs[0]
 
         // Don't interrupt user if actively filling the form unless forced
-        if (!force && status === 'in_progress') {
+        if (!force && statusRef.current === 'in_progress') {
           return
         }
 
+        let nextStatus: KYCStatus = 'not_started'
+        let nextReason: string | null = null
+
         if (tier === 'VERIFIED' || tier.includes('Verified') || latestSubmission?.status === 'approved') {
-          setStatus('approved')
+          nextStatus = 'approved'
         } else if (subs.some((s: any) => s.status === 'in_review' || s.status === 'pending') || tier.includes('In Review') || latestSubmission?.status === 'in_review') {
-          setStatus('pending_review')
+          nextStatus = 'pending_review'
         } else if (tier.includes('Rejected') || (latestSubmission && latestSubmission.status === 'rejected')) {
-          setStatus('rejected')
-          setRejectionReason(latestSubmission?.rejection_reason || 'Document verification requirements were not met.')
+          nextStatus = 'rejected'
+          nextReason = latestSubmission?.rejection_reason || 'Document verification requirements were not met.'
         } else {
-          setStatus('not_started')
+          nextStatus = 'not_started'
+        }
+
+        // Only trigger state updates if status changed to avoid unnecessary re-renders
+        if (statusRef.current !== nextStatus) {
+          statusRef.current = nextStatus
+          setStatus(nextStatus)
+        }
+        if (nextReason !== null) {
+          setRejectionReason(nextReason)
         }
       })
       .catch(() => {
         if (user.kyc_tier === 'VERIFIED' || user.kyc_tier?.includes('Verified')) {
-          setStatus('approved')
+          if (statusRef.current !== 'approved') {
+            statusRef.current = 'approved'
+            setStatus('approved')
+          }
         }
       })
-  }
+  }, [user?.id, user?.kyc_tier])
 
   useEffect(() => {
-    checkKycStatus()
-    const timer = setInterval(() => checkKycStatus(false), 8000)
-    window.addEventListener('focus', () => checkKycStatus(false))
+    const handleFocus = () => {
+      checkKycStatus(false)
+    }
+
+    checkKycStatus(false)
+    const timer = setInterval(() => {
+      checkKycStatus(false)
+    }, 8000)
+
+    window.addEventListener('focus', handleFocus)
     return () => {
       clearInterval(timer)
-      window.removeEventListener('focus', () => checkKycStatus(false))
+      window.removeEventListener('focus', handleFocus)
     }
-  }, [user])
+  }, [checkKycStatus])
 
   // Submit for Review
   const handleSubmitVerification = (e: React.FormEvent) => {
@@ -217,6 +256,7 @@ export const KYC: React.FC = () => {
       })
       .then(() => {
         setIsSubmitting(false)
+        statusRef.current = 'pending_review'
         setStatus('pending_review')
         triggerToast('Identity verification submitted for compliance review!')
         checkKycStatus(true)
@@ -229,6 +269,7 @@ export const KYC: React.FC = () => {
 
   // Reset demo
   const handleResetDemo = () => {
+    statusRef.current = 'not_started'
     setStatus('not_started')
     setCurrentStep(1)
     setFormData(INITIAL_KYC_FORM)
@@ -243,6 +284,7 @@ export const KYC: React.FC = () => {
       frontDoc: null,
       backDoc: null,
     }))
+    statusRef.current = 'in_progress'
     setStatus('in_progress')
     setCurrentStep(3) // Jump directly to document upload
     triggerToast('Ready to re-upload clear identification documents.')
