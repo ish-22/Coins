@@ -204,9 +204,13 @@ export const Support: React.FC = () => {
   }
 
   // Handle add live reply to ticket
-  const handleAddReply = async (ticketId: string, replyText: string) => {
+  const handleAddReply = async (
+    ticketId: string,
+    replyText: string,
+    attachment?: { name: string; data: string } | null
+  ) => {
     try {
-      const response = await supportService.replyTicket(ticketId, replyText)
+      const response = await supportService.replyTicket(ticketId, replyText, attachment)
       // Update ticket locally immediately
       setTickets((prev) => {
         const nextList = prev.map((t) => {

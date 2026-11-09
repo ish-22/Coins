@@ -323,6 +323,8 @@ export interface AdminSupportMessage {
   senderName: string
   message: string
   timestamp: string
+  attachmentName?: string
+  attachmentUrl?: string
   isRead?: boolean
 }
 
@@ -337,6 +339,8 @@ export interface AdminSupportTicket {
   category: 'trading' | 'account' | 'deposits' | 'withdrawals' | 'kyc' | 'security' | 'wallet'
   priority: 'low' | 'medium' | 'high' | 'urgent'
   status: 'open' | 'in_progress' | 'waiting_user' | 'resolved' | 'closed'
+  attachmentName?: string
+  attachmentUrl?: string
   unreadCount?: number
   createdAt: string
   updatedAt: string

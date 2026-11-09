@@ -8,9 +8,11 @@ export interface SupportListResponse {
 
 export interface CreateTicketPayload {
   subject: string
-  category: SupportCategory
+  category: SupportCategory | string
   priority: 'low' | 'medium' | 'high' | 'urgent'
   message: string
+  attachmentName?: string | null
+  attachmentData?: string | null
 }
 
 export const supportService = {
@@ -26,11 +28,16 @@ export const supportService = {
 
   async replyTicket(
     ticketId: string | number,
-    message: string
+    message: string,
+    attachment?: { name: string; data: string } | null
   ): Promise<{ reply: TicketMessage; ticket?: Partial<SupportTicket>; message: string }> {
     const response = await apiClient.post<{ reply: TicketMessage; ticket?: Partial<SupportTicket>; message: string }>(
       `/support/tickets/${ticketId}/reply`,
-      { message }
+      {
+        message,
+        attachmentName: attachment?.name,
+        attachmentData: attachment?.data,
+      }
     )
     return response.data
   },

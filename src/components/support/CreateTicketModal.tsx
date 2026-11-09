@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   X,
   LifeBuoy,
@@ -30,14 +30,53 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   const [category, setCategory] = useState<SupportCategory>('trading')
   const [priority, setPriority] = useState<TicketPriority>('medium')
   const [description, setDescription] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [attachmentName, setAttachmentName] = useState<string | null>(null)
+  const [attachmentData, setAttachmentData] = useState<string | null>(null)
+  const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null)
+  const [attachmentSize, setAttachmentSize] = useState<string | null>(null)
   const [errors, setErrors] = useState<{ subject?: string; description?: string; general?: string }>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (!isOpen) return null
 
-  const handleAttachDemoFile = () => {
-    setAttachmentName('error_screenshot_sample.png')
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 10 * 1024 * 1024) {
+      setErrors((prev) => ({ ...prev, general: 'File size must be under 10MB.' }))
+      return
+    }
+
+    setAttachmentName(file.name)
+    const formattedSize =
+      file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.round(file.size / 1024)} KB`
+    setAttachmentSize(formattedSize)
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      setAttachmentData(result)
+      if (file.type.startsWith('image/')) {
+        setAttachmentPreview(result)
+      } else {
+        setAttachmentPreview(null)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveAttachment = () => {
+    setAttachmentName(null)
+    setAttachmentData(null)
+    setAttachmentPreview(null)
+    setAttachmentSize(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,6 +103,8 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
         category,
         priority,
         message: description.trim(),
+        attachmentName: attachmentName || undefined,
+        attachmentData: attachmentData || undefined,
       })
 
       if (response && response.ticket) {
@@ -190,34 +231,61 @@ export const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
             )}
           </div>
 
-          {/* Demonstration Attachment */}
+          {/* Real Browser File Attachment */}
           <div className="space-y-2 pt-1">
             <span className="font-semibold text-cp-text-secondary block">
               Attachments (Optional)
             </span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf,.doc,.docx,.txt"
+              onChange={handleFileChange}
+              className="hidden"
+            />
 
             {attachmentName ? (
-              <div className="p-3 rounded-xl bg-cp-card border border-cp-border flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Paperclip className="w-4 h-4 text-cp-gold" />
-                  <span className="font-mono text-cp-text-primary text-xs">{attachmentName}</span>
+              <div className="p-3 rounded-xl bg-cp-card border border-cp-border flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {attachmentPreview ? (
+                    <img
+                      src={attachmentPreview}
+                      alt="preview"
+                      className="w-10 h-10 rounded-lg object-cover border border-cp-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-cp-elevated border border-cp-border flex items-center justify-center text-cp-gold shrink-0">
+                      <Paperclip className="w-5 h-5" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <span className="font-mono text-cp-text-primary text-xs font-semibold block truncate">
+                      {attachmentName}
+                    </span>
+                    {attachmentSize && (
+                      <span className="text-[10px] text-cp-text-secondary font-mono block">
+                        {attachmentSize}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setAttachmentName(null)}
-                  className="text-cp-text-secondary hover:text-cp-negative text-xs p-1"
+                  onClick={handleRemoveAttachment}
+                  className="text-cp-text-secondary hover:text-cp-negative text-xs p-1.5 rounded-lg hover:bg-cp-elevated transition-colors"
+                  title="Remove file"
                 >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             ) : (
               <button
                 type="button"
-                onClick={handleAttachDemoFile}
-                className="w-full py-2.5 px-3 rounded-lg border border-dashed border-cp-border hover:border-cp-gold/60 text-cp-text-secondary hover:text-cp-gold transition-colors flex items-center justify-center gap-2"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full py-3 px-3 rounded-xl border border-dashed border-cp-border hover:border-cp-gold/60 text-cp-text-secondary hover:text-cp-gold transition-colors flex items-center justify-center gap-2 bg-cp-card/40 cursor-pointer"
               >
                 <Paperclip className="w-4 h-4" />
-                <span>Attach Screenshot (.PNG / .JPG / .PDF)</span>
+                <span>Choose File from Device (.PNG, .JPG, .PDF, .DOC)</span>
               </button>
             )}
           </div>

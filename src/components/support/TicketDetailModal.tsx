@@ -20,7 +20,7 @@ export interface TicketDetailModalProps {
   isOpen: boolean
   ticket: SupportTicket | null
   onClose: () => void
-  onAddReply: (ticketId: string, replyText: string) => Promise<void> | void
+  onAddReply: (ticketId: string, replyText: string, attachment?: { name: string; data: string } | null) => Promise<void> | void
   onStatusChange?: (ticketId: string, newStatus: 'open' | 'resolved' | 'closed') => void
 }
 
@@ -32,6 +32,10 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
   onStatusChange,
 }) => {
   const [replyText, setReplyText] = useState('')
+  const [replyAttachmentName, setReplyAttachmentName] = useState<string | null>(null)
+  const [replyAttachmentData, setReplyAttachmentData] = useState<string | null>(null)
+  const [replyAttachmentPreview, setReplyAttachmentPreview] = useState<string | null>(null)
+  const replyFileInputRef = useRef<HTMLInputElement>(null)
   const [isSending, setIsSending] = useState(false)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -48,14 +52,45 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
 
   if (!isOpen || !ticket) return null
 
+  const handleReplyFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setReplyAttachmentName(file.name)
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      setReplyAttachmentData(result)
+      if (file.type.startsWith('image/')) {
+        setReplyAttachmentPreview(result)
+      } else {
+        setReplyAttachmentPreview(null)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveReplyAttachment = () => {
+    setReplyAttachmentName(null)
+    setReplyAttachmentData(null)
+    setReplyAttachmentPreview(null)
+    if (replyFileInputRef.current) {
+      replyFileInputRef.current.value = ''
+    }
+  }
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!replyText.trim() || isSending) return
 
     setIsSending(true)
     try {
-      await onAddReply(ticket.id, replyText.trim())
+      const attachment = replyAttachmentName && replyAttachmentData
+        ? { name: replyAttachmentName, data: replyAttachmentData }
+        : null
+      await onAddReply(ticket.id, replyText.trim(), attachment)
       setReplyText('')
+      handleRemoveReplyAttachment()
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
       }, 100)
@@ -218,10 +253,34 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
                   </p>
 
                   {msg.attachmentName && (
-                    <div className="pt-1">
+                    <div className="pt-1.5 space-y-1.5">
+                      {msg.attachmentUrl && (
+                        <div className="rounded-xl overflow-hidden border border-cp-border max-w-xs bg-black/40">
+                          {msg.attachmentUrl.match(/\.(jpg|jpeg|png|webp|gif)($|\?)/i) || msg.attachmentUrl.startsWith('data:image/') ? (
+                            <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" className="block group">
+                              <img
+                                src={msg.attachmentUrl}
+                                alt={msg.attachmentName}
+                                className="max-h-48 w-full object-contain bg-black/60 group-hover:opacity-90 transition-opacity"
+                              />
+                            </a>
+                          ) : null}
+                        </div>
+                      )}
                       <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cp-card border border-cp-border text-[11px] font-mono text-cp-text-primary">
-                        <Paperclip className="w-3 h-3 text-cp-gold" />
-                        <span>{msg.attachmentName}</span>
+                        <Paperclip className="w-3 h-3 text-cp-gold shrink-0" />
+                        {msg.attachmentUrl ? (
+                          <a
+                            href={msg.attachmentUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hover:text-cp-gold underline truncate max-w-xs"
+                          >
+                            {msg.attachmentName}
+                          </a>
+                        ) : (
+                          <span className="truncate max-w-xs">{msg.attachmentName}</span>
+                        )}
                       </div>
                     </div>
                   )}
@@ -233,9 +292,44 @@ export const TicketDetailModal: React.FC<TicketDetailModalProps> = ({
         </div>
 
         {/* Reply Box Footer */}
-        <div className="p-4 border-t border-cp-border bg-cp-card/70">
+        <div className="p-4 border-t border-cp-border bg-cp-card/70 space-y-2">
+          {/* Active Reply Attachment Chip */}
+          {replyAttachmentName && (
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-cp-elevated border border-cp-gold/40 text-xs text-cp-text-primary">
+              {replyAttachmentPreview ? (
+                <img src={replyAttachmentPreview} alt="attachment" className="w-5 h-5 rounded object-cover" />
+              ) : (
+                <Paperclip className="w-3.5 h-3.5 text-cp-gold" />
+              )}
+              <span className="font-mono text-[11px] truncate max-w-[200px]">{replyAttachmentName}</span>
+              <button
+                type="button"
+                onClick={handleRemoveReplyAttachment}
+                className="hover:text-cp-negative text-cp-text-secondary"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           <form onSubmit={handleSend} className="space-y-2.5">
+            <input
+              ref={replyFileInputRef}
+              type="file"
+              accept="image/*,application/pdf,.doc,.docx,.txt"
+              onChange={handleReplyFileChange}
+              className="hidden"
+            />
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => replyFileInputRef.current?.click()}
+                disabled={isSending}
+                className="p-2.5 rounded-xl border border-cp-border bg-cp-elevated text-cp-text-secondary hover:text-cp-gold hover:border-cp-gold/50 transition-colors shrink-0"
+                title="Attach file from device"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
               <input
                 type="text"
                 value={replyText}

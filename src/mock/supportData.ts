@@ -30,6 +30,7 @@ export interface TicketMessage {
   message: string
   timestamp: string
   attachmentName?: string
+  attachmentUrl?: string
   isRead?: boolean
 }
 
@@ -44,6 +45,7 @@ export interface SupportTicket {
   updatedAt: string
   description?: string
   attachmentName?: string
+  attachmentUrl?: string
   unreadCount?: number
   messages: TicketMessage[]
 }

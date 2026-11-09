@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Mail,
   Filter,
+  Paperclip,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/common/Card'
 import { Badge } from '@/components/common/Badge'
@@ -642,6 +643,38 @@ export const AdminSupport: React.FC = () => {
                       <span className="text-[10px] text-cp-text-muted font-mono">{msg.timestamp}</span>
                     </div>
                     <p className="text-cp-text-primary leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                    {msg.attachmentName && (
+                      <div className="pt-2 space-y-2">
+                        {msg.attachmentUrl && (
+                          <div className="rounded-xl overflow-hidden border border-cp-border/70 max-w-sm bg-black/40">
+                            {msg.attachmentUrl.match(/\.(jpg|jpeg|png|webp|gif)($|\?)/i) || msg.attachmentUrl.startsWith('data:image/') ? (
+                              <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" className="block group">
+                                <img
+                                  src={msg.attachmentUrl}
+                                  alt={msg.attachmentName}
+                                  className="max-h-56 w-full object-contain bg-black/60 group-hover:opacity-90 transition-opacity"
+                                />
+                              </a>
+                            ) : null}
+                          </div>
+                        )}
+                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cp-card border border-cp-border text-xs font-mono text-cp-text-primary shadow-sm">
+                          <Paperclip className="w-3.5 h-3.5 text-cp-gold shrink-0" />
+                          {msg.attachmentUrl ? (
+                            <a
+                              href={msg.attachmentUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="hover:text-cp-gold underline truncate max-w-xs"
+                            >
+                              {msg.attachmentName}
+                            </a>
+                          ) : (
+                            <span className="truncate max-w-xs">{msg.attachmentName}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}
