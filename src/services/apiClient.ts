@@ -1,6 +1,13 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
+const envUrl = import.meta.env.VITE_API_BASE_URL
+const isVercelHost = typeof window !== 'undefined' && window.location.hostname.includes('vercel.app')
+const API_BASE_URL =
+  envUrl && !envUrl.includes('127.0.0.1') && !envUrl.includes('localhost')
+    ? envUrl
+    : isVercelHost
+      ? 'https://coins-api-v2.vercel.app/api'
+      : (envUrl || 'http://127.0.0.1:8000/api')
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,

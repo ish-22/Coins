@@ -81,6 +81,9 @@ export const Login: React.FC = () => {
         sessionStorage.setItem('cp_admin_auth', 'true')
         sessionStorage.setItem('cp_admin_token', res.token)
         sessionStorage.setItem('cp_admin_user', JSON.stringify(res.user))
+        localStorage.setItem('cp_admin_auth', 'true')
+        localStorage.setItem('cp_admin_token', res.token)
+        localStorage.setItem('cp_admin_user', JSON.stringify(res.user))
         setIsSubmitting(false)
         navigate('/admin/dashboard')
         return
